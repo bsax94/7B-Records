@@ -9,6 +9,13 @@ sudo apt update
 # Try chromium-browser first, then chromium if it fails (common on newer Debian versions)
 sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser || sudo apt install -y chromium
 
+# Ensure Icecast is listening on all interfaces (0.0.0.0) instead of just localhost
+echo "🔧 Optimizing Icecast configuration for network casting..."
+if [ -f "/etc/icecast2/icecast.xml" ]; then
+    sudo sed -i 's/<bind-address>127.0.0.1<\/bind-address>/<bind-address>0.0.0.0<\/bind-address>/g' /etc/icecast2/icecast.xml
+    sudo systemctl restart icecast2
+fi
+
 # 2. Setup the project folder
 PROJECT_NAME="7B-Records"
 REPO_URL="https://github.com/bsax94/7B-Records.git"

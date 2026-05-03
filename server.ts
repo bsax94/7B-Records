@@ -4,12 +4,27 @@ import path from "path";
 import { exec, spawn, ChildProcess } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
+import os from "os";
 
 const execAsync = promisify(exec);
+
+// Helper to get local IP address
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return "localhost";
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const LOCAL_IP = getLocalIp();
 
   app.use(express.json());
 
@@ -23,7 +38,7 @@ async function startServer() {
   let mkChromecastProcess: ChildProcess | any = null;
   let streamStartTime: number | null = null;
   let mockMode = false;
-  let logs: string[] = ["7B Records Server Started", "Waiting for audio sources..."];
+  let logs: string[] = ["7B Records Server Started", `Server IP: ${LOCAL_IP}`, "Waiting for audio sources..."];
 
   const addLog = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -47,7 +62,8 @@ async function startServer() {
       casting: !!mkChromecastProcess,
       icecast: true,
       mock: mockMode,
-      uptimeMinutes
+      uptimeMinutes,
+      localIp: LOCAL_IP
     });
   });
 
@@ -77,13 +93,20 @@ async function startServer() {
 
   app.get("/api/chromecasts", async (req, res) => {
     try {
+      // Use mkchromecast to list devices
       const { stdout } = await execAsync("mkchromecast -l");
       const devices = stdout.split('\n')
         .filter(line => line.includes('Name:'))
         .map(line => line.split('Name:')[1].trim());
-      if (devices.length === 0) throw new Error("No Chromecasts");
+      
+      if (devices.length === 0) {
+        // Fallback to checking if mkchromecast is installed but just not finding things yet
+        addLog("No Chromecasts found by mkchromecast -l. Check if devices are on the same network.");
+        throw new Error("No Chromecasts");
+      }
       res.json(devices);
     } catch (error) {
+      // In development or if disconnected, provide options
       res.json(["Living Room Speaker", "Kitchen Nest Hub", "Bedroom Chromecast"]);
     }
   });
@@ -144,7 +167,7 @@ name            = PiCastStream
       darkIceProcess = spawnProcess("darkice", ["-c", "darkice.cfg"], "DarkIce");
       streamStartTime = Date.now();
 
-      // Mock Fallback logic
+      // Give Icecast a moment to start the stream before telling Chromecast to fetch it
       setTimeout(() => {
         if (!darkIceProcess || !darkIceProcess.pid) {
           addLog("DASHBOARD: Simulating DarkIce process (Hardware not found)");
@@ -152,10 +175,17 @@ name            = PiCastStream
           mockMode = true;
         }
 
-        addLog(`Attempting to cast to ${chromecast}...`);
+        const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
+        addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
+        
+        // mkchromecast flags:
+        // -n: Name of the chromecast
+        // -u: Source URL
+        // -c: Codec
         mkChromecastProcess = spawnProcess("mkchromecast", [
           "--name", chromecast,
-          "--source-url", "http://localhost:8000/stream.mp3"
+          "--source-url", streamUrl,
+          "-c", "mp3"
         ], "Cast");
 
         setTimeout(() => {
@@ -163,10 +193,10 @@ name            = PiCastStream
             addLog("DASHBOARD: Simulating Cast process (Chromecast tools not found)");
             mkChromecastProcess = { kill: () => {}, pid: 1000 };
           }
-        }, 1000);
-      }, 2000);
+        }, 1500);
+      }, 3000);
 
-      res.json({ success: true, mock: mockMode });
+      res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:8000/stream.mp3` });
     } catch (error) {
       addLog(`Failed to start stream: ${error}`);
       res.status(500).json({ error: "Failed to start stream" });

@@ -40,6 +40,7 @@ interface Status {
   icecast: boolean;
   mock?: boolean;
   uptimeMinutes?: number;
+  localIp?: string;
 }
 
 export default function App() {
@@ -201,6 +202,7 @@ export default function App() {
           </div>
           <h1 className="text-xs font-black italic tracking-widest text-[var(--accent)] uppercase">7B Records Control</h1>
           {status.mock && <span className="text-[8px] px-1 border border-cyan-500/50 text-cyan-400 font-bold rounded">MOCK</span>}
+          {status.localIp && <span className="text-[9px] font-mono text-white/40 ml-2 tracking-tighter">IP: {status.localIp}</span>}
         </div>
 
         <div className="flex items-center gap-4">
