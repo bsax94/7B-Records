@@ -5,20 +5,27 @@
 set -e # Exit on error
 
 echo "🔄 [1/4] Detecting project environment..."
-# Find the project root by looking for package.json in typical locations
-if [ -f "package.json" ]; then
-    ROOT=$(pwd)
-elif [ -d "$HOME/7B_records" ]; then
-    ROOT="$HOME/7B_records"
-elif [ -d "$HOME/7B-Records" ]; then
-    ROOT="$HOME/7B-Records"
+# Find the project root based on where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ -f "$SCRIPT_DIR/package.json" ]; then
+    ROOT="$SCRIPT_DIR"
 else
-    # Try one last check in the current folder's parent
-    if [ -f "../package.json" ]; then
-        ROOT=$(cd .. && pwd)
+    # Fallback to current directory or typical locations
+    if [ -f "package.json" ]; then
+        ROOT=$(pwd)
+    elif [ -d "$HOME/7B_records" ]; then
+        ROOT="$HOME/7B_records"
+    elif [ -d "$HOME/7B-Records" ]; then
+        ROOT="$HOME/7B-Records"
     else
-        echo "❌ Error: Could not find project root (package.json). Please run this from inside the 7B Records folder."
-        exit 1
+        # Try one last check in the current folder's parent
+        if [ -f "../package.json" ]; then
+            ROOT=$(cd .. && pwd)
+        else
+            echo "❌ Error: Could not find project root (package.json). Please run this from inside the 7B Records folder."
+            exit 1
+        fi
     fi
 fi
 

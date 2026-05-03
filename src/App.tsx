@@ -573,7 +573,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[22px]">
             RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.2</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.3</div>
         </div>
       </motion.div>
 
