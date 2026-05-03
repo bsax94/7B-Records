@@ -19,10 +19,14 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 6. **Create a "7B Records" icon on your Desktop.**
 
 ## 🔄 Updating
-To update the app to the latest version without deleting anything:
+If you are updating for the first time, you must manually sync the new files:
 ```bash
-cd ~/7B_records 2>/dev/null || cd ~/7B-Records
-chmod +x update.sh && ./update.sh
+cd ~/7B_records && git pull && chmod +x update.sh && ./update.sh
+```
+
+For all future updates, simply run:
+```bash
+./update.sh
 ```
 
 ## 📡 Networking & Troubleshooting

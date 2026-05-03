@@ -5,15 +5,15 @@
 set -e # Exit on error
 
 echo "🔄 [1/4] Detecting project environment..."
-# Find the project root
-if [ -f "package.json" ]; then
+# Detect if we should use full path or local path
+if [ -d "$HOME/7B_records" ]; then
+    ROOT="$HOME/7B_records"
+elif [ -d "$HOME/7B-Records" ]; then
+    ROOT="$HOME/7B-Records"
+elif [ -f "package.json" ]; then
     ROOT=$(pwd)
-elif [ -d "../7B_records" ]; then
-    ROOT="../7B_records"
-elif [ -d "../7B-Records" ]; then
-    ROOT="../7B-Records"
 else
-    echo "❌ Error: Could not find project root. Please run this from inside the 7B Records folder."
+    echo "❌ Error: Could not find project root."
     exit 1
 fi
 
