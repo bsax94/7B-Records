@@ -5,28 +5,78 @@ A web dashboard for Raspberry Pi that enables streaming audio from a hardware in
 ## How to Install on your Raspberry Pi
 
 1.  **Clone this repository** to your Pi.
-2.  **Install System Dependencies**:
-    ```bash
-    sudo apt update
-    sudo apt install -y icecast2 darkice mkchromecast nodejs npm
-    ```
-    *Note: During Icecast2 installation, set the source password to `raspberry` (or your preferred password and update it in the dashboard).*
-3.  **Install App Dependencies**:
-    ```bash
-    npm install
-    ```
-4.  **Build the Frontend**:
-    ```bash
-    npm run build
-    ```
-5.  **Run the Server**:
-    ```bash
-    # For development (includes mock data for non-Pi environments)
-    npm run dev
-    
-    # For production
-    npm start
-    ```
+2.  # 1. Create the robust setup script
+cat <<'EOF' > ~/setup_7b_records.sh
+#!/bin/bash
+echo "🎵 Starting 7B Records Professional Setup..."
+
+# Install system tools
+sudo apt update
+sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser || sudo apt install -y chromium
+
+
+# Force create the correct package.json
+cat <<EOP > package.json
+{
+  "name": "7b-records",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "node server.ts",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/genai": "^1.30.2",
+    "@tailwindcss/vite": "^4.0.0",
+    "express": "^4.21.2",
+    "lucide-react": "^0.479.0",
+    "motion": "^12.4.10",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
+EOP
+
+# Install and Build
+npm install
+npm run build
+
+# Create Desktop Shortcut
+DESKTOP_FILE=~/Desktop/7B_Records.desktop
+cat <<EOD > $DESKTOP_FILE
+[Desktop Entry]
+Name=7B Records
+Comment=Synthwave Audio Broadcast Controller
+Exec=lxterminal -e "bash -c 'cd ~/7B_records && npm start; exec bash'"
+Icon=multimedia-audio-player
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;
+EOD
+chmod +x $DESKTOP_FILE
+
+echo "✅ Setup Complete. Check your Desktop for the 7B Records icon!"
+EOF
+
+# 2. Make it executable and run it
+chmod +x ~/setup_7b_records.sh
+~/setup_7b_records.sh
 
 ## Usage
 
