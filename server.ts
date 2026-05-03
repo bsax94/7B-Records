@@ -188,6 +188,18 @@ async function startServer() {
         await execAsync("pkill -9 mkchromecast || true");
       } catch (e) {}
 
+      // Verify Icecast is running or try to start it
+      try {
+        const { stdout: netstat } = await execAsync("netstat -an | grep 8000 | grep LISTEN || true");
+        if (!netstat) {
+          addLog("Icecast not detected on port 8000. Attempting to start/restart icecast2 service...");
+          await execAsync("sudo systemctl restart icecast2 || true");
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      } catch (e) {
+        addLog("Could not verify Icecast status. Continuing anyway...");
+      }
+
       const config = `
 [general]
 duration        = 0
@@ -242,37 +254,40 @@ name            = PiCastStream
       darkIceProcess = spawnProcess("darkice", ["-c", "darkice.cfg"], "DarkIce");
       streamStartTime = Date.now();
 
-      // Give Icecast more time to buffer and initialize the mount point
-      setTimeout(() => {
-        if (!darkIceProcess || !darkIceProcess.pid) {
+      // Better check: Wait until the stream URL is actually reachable locally
+      const waitForStream = async (retries = 10): Promise<boolean> => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const { stdout } = await execAsync(`curl -I http://localhost:8000/stream.mp3 | grep "200 OK" || true`);
+            if (stdout.includes("200 OK")) return true;
+          } catch (e) {}
+          await new Promise(r => setTimeout(r, 1500));
+          addLog(`Waiting for stream to buffer... (${i + 1}/${retries})`);
+        }
+        return false;
+      };
+
+      (async () => {
+        const isLive = await waitForStream();
+        
+        if (!isLive && (!darkIceProcess || !darkIceProcess.pid)) {
           addLog("DASHBOARD: Simulating DarkIce (Hardware not responding)");
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
+        } else if (!isLive) {
+          addLog("WARNING: Stream did not go live in time, but process is running. Attempting cast anyway...");
         }
 
         const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
         addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
         
-        // mkchromecast flags:
-        // -n: Name of the chromecast
-        // -u: Source URL
-        // -c: Codec (mp3)
-        // --control: Enable playback control
-        // --p: Port for the control server (optional but helpful)
         mkChromecastProcess = spawnProcess("mkchromecast", [
           "--name", chromecast,
           "--source-url", streamUrl,
           "-c", "mp3",
           "--control"
         ], "Cast");
-
-        setTimeout(() => {
-          if (!mkChromecastProcess || !mkChromecastProcess.pid) {
-            addLog("DASHBOARD: Simulating Cast (Process fallback)");
-            mkChromecastProcess = { kill: () => {}, pid: 1000 };
-          }
-        }, 2000);
-      }, 5000); // 5 second delay for buffering
+      })();
 
       res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:8000/stream.mp3` });
     } catch (error) {
