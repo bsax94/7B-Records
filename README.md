@@ -27,6 +27,14 @@ Navigate to your project folder and run:
 chmod +x update.sh && ./update.sh
 ```
 
+### 📡 Expert Icecast Configuration
+If you have issues with the stream not going live, you may need to configure Icecast to bind to all network interfaces. Run the provided helper script:
+```bash
+sudo chmod +x setup_icecast.sh
+sudo ./setup_icecast.sh "YOUR_SOURCE_PASS" "YOUR_ADMIN_PASS"
+```
+Then, update your **Expert Stream Settings** in the dashboard to match these passwords.
+
 ### If you aren't sure where the folder is:
 Run this command to find the script:
 ```bash

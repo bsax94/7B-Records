@@ -45,12 +45,34 @@ interface Status {
   localIp?: string;
 }
 
+interface StreamSettings {
+  device: string;
+  icecastHost: string;
+  icecastPort: string;
+  icecastSourcePass: string;
+  icecastAdminPass: string;
+  icecastMount: string;
+  bitrate: string;
+  sampleRate: string;
+}
+
 export default function App() {
   const [status, setStatus] = useState<Status>({ streaming: false, casting: false, icecast: true, mock: false });
   const [devices, setDevices] = useState<Device[]>([]);
   const [chromecasts, setChromecasts] = useState<string[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<StreamSettings>({
+    device: "hw:1,0",
+    icecastHost: "localhost",
+    icecastPort: "8000",
+    icecastSourcePass: "hackme",
+    icecastAdminPass: "hackme",
+    icecastMount: "7b_records",
+    bitrate: "320",
+    sampleRate: "44100"
+  });
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -96,6 +118,7 @@ export default function App() {
     fetchDevices();
     fetchChromecasts();
     fetchLogs();
+    fetchSettings();
     
     const statusInterval = setInterval(fetchStatus, 3000);
     const logsInterval = setInterval(fetchLogs, 4000);
@@ -105,6 +128,36 @@ export default function App() {
       clearInterval(logsInterval);
     };
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data);
+        if (!config.device) setConfig(prev => ({ ...prev, device: data.device }));
+      }
+    } catch (e) {
+      console.error('Settings fetch failed', e);
+    }
+  };
+
+  const saveSettings = async (newSettings: StreamSettings) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      });
+      if (res.ok) {
+        showToast("Settings Saved", 'info');
+        setShowSettings(false);
+        fetchSettings();
+      }
+    } catch (e) {
+      console.error('Settings save failed', e);
+    }
+  };
 
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -243,6 +296,13 @@ export default function App() {
             />
           </div>
           <div className="h-4 w-px bg-[var(--border)] mx-1" />
+          <button 
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="p-1.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)]"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
           <button 
             type="button"
             onClick={toggleFullscreen}
@@ -479,6 +539,146 @@ export default function App() {
 
           {/* Modal Logs Overlay */}
           <AnimatePresence>
+            {showSettings && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute inset-4 z-[60] bg-[#050506]/95 backdrop-blur-xl border border-cyan-500/30 rounded-xl flex flex-col overflow-hidden shadow-[0_0_50px_rgba(34,211,238,0.2)]"
+              >
+                <div className="px-4 py-3 border-b border-white/10 flex justify-between items-center bg-cyan-400/5">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-cyan-400" />
+                    <span className="text-[10px] font-black tracking-widest text-white uppercase">Expert Stream Settings</span>
+                  </div>
+                  <button type="button" onClick={() => setShowSettings(false)} className="text-[9px] font-bold text-white/50 hover:text-white transition-colors">CLOSE</button>
+                </div>
+                
+                <div className="flex-grow overflow-y-auto p-6 space-y-6">
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">Audio Hardware</h3>
+                        <div className="space-y-2">
+                           <label className="block text-[8px] font-bold text-white/40 uppercase">ALSA Input Device Path</label>
+                           <input 
+                              type="text" 
+                              value={settings.device}
+                              onChange={(e) => setSettings({...settings, device: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-cyan-500 transition-colors"
+                              placeholder="e.g. hw:1,0"
+                           />
+                           <p className="text-[7px] text-white/30 italic">Standard USB audio cards are usually hw:1,0 or hw:2,0</p>
+                        </div>
+                        <div className="space-y-2">
+                           <label className="block text-[8px] font-bold text-white/40 uppercase">Sample Rate (Hz)</label>
+                           <select 
+                              value={settings.sampleRate}
+                              onChange={(e) => setSettings({...settings, sampleRate: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-cyan-500 transition-colors"
+                           >
+                              <option value="44100">44100 (Standard)</option>
+                              <option value="48000">48000 (HD Audio)</option>
+                           </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="text-[10px] font-black text-pink-500 uppercase tracking-widest">Icecast Server</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="space-y-2">
+                              <label className="block text-[8px] font-bold text-white/40 uppercase">Host</label>
+                              <input 
+                                 type="text" 
+                                 value={settings.icecastHost}
+                                 onChange={(e) => setSettings({...settings, icecastHost: e.target.value})}
+                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="block text-[8px] font-bold text-white/40 uppercase">Port</label>
+                              <input 
+                                 type="text" 
+                                 value={settings.icecastPort}
+                                 onChange={(e) => setSettings({...settings, icecastPort: e.target.value})}
+                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
+                              />
+                           </div>
+                        </div>
+                        <div className="space-y-2">
+                           <label className="block text-[8px] font-bold text-white/40 uppercase">Mount Password (Source)</label>
+                           <input 
+                              type="password" 
+                              value={settings.icecastSourcePass}
+                              onChange={(e) => setSettings({...settings, icecastSourcePass: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
+                           />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="space-y-2">
+                              <label className="block text-[8px] font-bold text-white/40 uppercase">Admin Password</label>
+                              <input 
+                                 type="password" 
+                                 value={settings.icecastAdminPass}
+                                 onChange={(e) => setSettings({...settings, icecastAdminPass: e.target.value})}
+                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="block text-[8px] font-bold text-white/40 uppercase">Mount Point</label>
+                              <input 
+                                 type="text" 
+                                 value={settings.icecastMount}
+                                 onChange={(e) => setSettings({...settings, icecastMount: e.target.value})}
+                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
+                              />
+                           </div>
+                        </div>
+                      </div>
+                   </div>
+
+                   <div className="pt-6 border-t border-white/5 flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => saveSettings(settings)}
+                        className="flex-grow bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-lg font-black text-[10px] tracking-[0.2em] transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)]"
+                      >
+                        APPLY EXPERT CONFIGURATION
+                      </button>
+                      <button 
+                         type="button"
+                         onClick={() => {
+                           const defaults = {
+                            device: "hw:1,0",
+                            icecastHost: "localhost",
+                            icecastPort: "8000",
+                            icecastSourcePass: "hackme",
+                            icecastAdminPass: "hackme",
+                            icecastMount: "7b_records",
+                            bitrate: "320",
+                            sampleRate: "44100"
+                           };
+                           setSettings(defaults);
+                           saveSettings(defaults);
+                         }}
+                         className="px-6 border border-white/10 text-white/40 hover:text-white rounded-lg text-[9px] font-bold"
+                      >
+                        DEFAULTS
+                      </button>
+                   </div>
+                   
+                   <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <div className="flex gap-3">
+                         <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                         <span className="text-[9px] text-amber-200/70 leading-relaxed uppercase tracking-tighter">
+                           Caution: Changing hardware paths requires the DarkIce process to restart. 
+                           If you hear no audio, run <code className="text-white">arecord -l</code> in your terminal to find your card ID.
+                         </span>
+                      </div>
+                   </div>
+                </div>
+              </motion.div>
+            )}
+
             {showLogs && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -593,7 +793,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.2</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.4</div>
         </div>
       </motion.div>
 

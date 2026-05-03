@@ -47,6 +47,17 @@ async function startServer() {
   let castStatus: 'idle' | 'connecting' | 'connected' | 'error' = 'idle';
   let logs: string[] = ["7B Records Server Started", `Server IP: ${LOCAL_IP}`, "Waiting for audio sources..."];
 
+  let streamSettings = {
+    device: "hw:1,0",
+    icecastHost: "localhost",
+    icecastPort: "8000",
+    icecastSourcePass: "hackme",
+    icecastAdminPass: "hackme",
+    icecastMount: "7b_records",
+    bitrate: "320",
+    sampleRate: "44100"
+  };
+
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
 
@@ -130,6 +141,16 @@ async function startServer() {
 
   apiRouter.get("/logs/download", (req, res) => {
     res.download(LOG_FILE, "7b-records-debug.log");
+  });
+
+  apiRouter.get("/settings", (req, res) => {
+    res.json(streamSettings);
+  });
+
+  apiRouter.post("/settings", (req, res) => {
+    streamSettings = { ...streamSettings, ...req.body };
+    addLog(`Settings updated: Device=${streamSettings.device}, bitrate=${streamSettings.bitrate}`);
+    res.json({ success: true, settings: streamSettings });
   });
 
   apiRouter.get("/devices", async (req, res) => {
@@ -253,20 +274,20 @@ bufferSecs      = 2
 reconnect       = yes
 
 [input]
-device          = ${device || 'hw:1,0'}
-sampleRate      = 44100
+device          = ${streamSettings.device}
+sampleRate      = ${streamSettings.sampleRate}
 bitsPerSample   = 16
 channel         = 2
 
 [icecast2-0]
 bitrateMode     = cbr
 format          = mp3
-bitrate         = ${bitrate || 192}
-server          = localhost
-port            = 8000
-password        = ${password || 'hackme'}
-mountPoint      = stream.mp3
-name            = PiCastStream
+bitrate         = ${streamSettings.bitrate}
+server          = ${streamSettings.icecastHost}
+port            = ${streamSettings.icecastPort}
+password        = ${streamSettings.icecastSourcePass}
+mountPoint      = ${streamSettings.icecastMount}
+name            = 7B Records Live
 `;
       await fs.writeFile("darkice.cfg", configText);
       addLog("Generated darkice.cfg (Fixed formatting)");
@@ -365,9 +386,10 @@ name            = PiCastStream
 
       // Better check: Wait until the stream URL is actually reachable locally
       const waitForStream = async (retries = 10): Promise<boolean> => {
+        const mount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
         for (let i = 0; i < retries; i++) {
           try {
-            const { stdout } = await execAsync(`curl -I http://localhost:8000/stream.mp3 2>/dev/null | grep "200" || true`);
+            const { stdout } = await execAsync(`curl -I http://localhost:8000${mount} 2>/dev/null | grep "200" || true`);
             if (stdout.includes("200")) return true;
           } catch (e) {}
           await new Promise(r => setTimeout(r, 1500));
@@ -384,10 +406,11 @@ name            = PiCastStream
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
         } else if (!isLive) {
-          addLog("WARNING: Stream did not go live. Please verify Icecast password.");
+          addLog("WARNING: Stream did not go live. Please verify Icecast configuration.");
         }
 
-        const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
+        const mount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
+        const streamUrl = `http://${LOCAL_IP}:8000${mount}`;
         addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
         
         // Try mkchromecast first
