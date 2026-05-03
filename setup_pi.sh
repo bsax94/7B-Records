@@ -7,7 +7,15 @@ echo "🎵 Starting 7B Records Setup for Raspberry Pi..."
 echo "📦 Installing system dependencies..."
 sudo apt update
 # Try chromium-browser first, then chromium if it fails (common on newer Debian versions)
-sudo apt install -y icecast2 darkice mkchromecast catt nodejs npm chromium-browser avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev libexiv2-dev || sudo apt install -y chromium catt avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev
+sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev libexiv2-dev python3-pip || \
+sudo apt install -y chromium avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev python3-pip
+
+# Install catt via pip3 if not in apt (happens on some Debian/Pi versions)
+if ! command -v catt &> /dev/null; then
+    echo "📦 Installing 'catt' via pip3..."
+    sudo apt install -y python3-pip
+    pip3 install catt --break-system-packages || pip3 install catt || echo "⚠️  Could not install catt."
+fi
 
 # Ensure avahi-daemon is running (required for Chromecast discovery)
 echo "📡 Enabling network discovery services..."
@@ -22,11 +30,20 @@ if command -v ufw > /dev/null; then
     sudo ufw allow 8008:8010/tcp
 fi
 
-# Ensure Icecast is listening on all interfaces (0.0.0.0) instead of just localhost
-echo "🔧 Optimizing Icecast configuration for network casting..."
-if [ -f "/etc/icecast2/icecast.xml" ]; then
-    sudo sed -i 's/<bind-address>127.0.0.1<\/bind-address>/<bind-address>0.0.0.0<\/bind-address>/g' /etc/icecast2/icecast.xml
-    sudo systemctl restart icecast2
+# Specialized setup for Streaming Services (Icecast2 & DarkIce)
+if [ -f "scripts/setup_streaming.sh" ]; then
+    chmod +x scripts/setup_streaming.sh
+    ./scripts/setup_streaming.sh
+elif [ -f "/scripts/setup_streaming.sh" ]; then
+    chmod +x /scripts/setup_streaming.sh
+    /scripts/setup_streaming.sh
+else
+    # Fallback to legacy configuration if script is missing
+    echo "🔧 Optimizing Icecast configuration (Legacy)..."
+    if [ -f "/etc/icecast2/icecast.xml" ]; then
+        sudo sed -i 's/<bind-address>127.0.0.1<\/bind-address>/<bind-address>0.0.0.0<\/bind-address>/g' /etc/icecast2/icecast.xml
+        sudo systemctl restart icecast2
+    fi
 fi
 
 # 2. Setup the project folder
@@ -53,6 +70,9 @@ echo "📂 Working directory: $PROJECT_DIR"
 
 # 3. Verify project integrity
 echo "🚀 Verifying application files..."
+
+# Ensure core scripts are executable
+chmod +x setup_pi.sh update.sh scripts/setup_streaming.sh 2>/dev/null || true
 
 if [ ! -f "package.json" ]; then
     echo "❌ Error: package.json not found. Are you in the correct directory?"
