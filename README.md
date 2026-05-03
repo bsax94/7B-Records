@@ -21,20 +21,21 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 ## 🔄 Updating & Fixing Errors
 If you see **"Not a JSON response"** or **"0 chromecast devices"**, you need to sync the latest system files.
 
-### The Easy Way (Run from anywhere)
-If you followed the standard install, just run:
+### The Easy Way
+Navigate to your project folder and run:
 ```bash
-~/7B_records/update.sh
-```
-*(Or use `~/7B-Records/update.sh` depending on your folder name)*
-
-### The Manual Way
-Navigate to your folder and run the script:
-```bash
-cd ~/7B_records
 chmod +x update.sh && ./update.sh
 ```
-Then restart your server (or use the Desktop icon).
+
+### If you aren't sure where the folder is:
+```bash
+find ~ -name "update.sh" 2>/dev/null
+```
+*Note: If your path has spaces (like `Stream App`), be sure to wrap the command in quotes:*
+```bash
+"/home/starlandmusic/Stream App/7B-Records/update.sh"
+```
+Then restart your server.
 
 ## 📡 Networking & Troubleshooting
 1. **Network**: Ensure the Pi and the Speakers are on the **same Wi-Fi/LAN**.
