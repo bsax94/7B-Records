@@ -1,19 +1,36 @@
 #!/bin/bash
-echo "🔄 Updating 7B Records..."
+# 7B Records Update Script
+# This script pulls the latest code and rebuilds the app without deleting user data.
 
-# Check if we are in a git repo
-if [ ! -d ".git" ]; then
-    echo "❌ Not a git repository. Cannot update automatically."
+set -e # Exit on error
+
+echo "🔄 [1/4] Detecting project environment..."
+# Find the project root
+if [ -f "package.json" ]; then
+    ROOT=$(pwd)
+elif [ -d "../7B_records" ]; then
+    ROOT="../7B_records"
+elif [ -d "../7B-Records" ]; then
+    ROOT="../7B-Records"
+else
+    echo "❌ Error: Could not find project root. Please run this from inside the 7B Records folder."
     exit 1
 fi
 
-echo "📥 Pulling latest changes..."
-git pull
+cd "$ROOT"
+echo "📍 Working in: $ROOT"
 
-echo "📦 Installing/Updating dependencies..."
+echo "📥 [2/4] Pulling latest updates from GitHub..."
+git pull origin main || echo "⚠️  Git pull failed. You may have local changes. Continuing anyway..."
+
+echo "📦 [3/4] refreshing dependencies..."
 npm install
 
-echo "🏗️  Rebuilding application..."
+echo "🏗️  [4/4] Rebuilding UI..."
 npm run build
 
-echo "✅ Update complete! Please restart your server (or use the Desktop icon)."
+echo "✅ UPDATE COMPLETE!"
+echo "--------------------------------------------------"
+echo "If the server is running, please restart it."
+echo "Or use the '7B Records' icon on your Desktop."
+echo "--------------------------------------------------"

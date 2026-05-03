@@ -21,8 +21,19 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 ## 🔄 Updating
 To update the app to the latest version without deleting anything:
 ```bash
-cd ~/7B-Records && chmod +x update.sh && ./update.sh
+cd ~/7B_records 2>/dev/null || cd ~/7B-Records
+chmod +x update.sh && ./update.sh
 ```
+
+## 📡 Networking & Troubleshooting
+If you cannot find your Chromecast devices:
+1. **Network**: Ensure the Pi and the Speakers are on the **same Wi-Fi/LAN**.
+2. **AP Isolation**: Check your router settings. "AP Isolation" or "Client Isolation" must be **OFF**.
+3. **mDNS**: This app uses Avahi for discovery. Ensure it's running: `sudo systemctl status avahi-daemon`.
+4. **Firewall**: Ensure the following ports are open on your network:
+   - **UDP 5353** (Discovery)
+   - **TCP 8000** (Stream)
+   - **TCP 8008-8010** (Cast Control)
 
 ## 🛠 Features
 
