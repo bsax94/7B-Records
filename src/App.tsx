@@ -69,7 +69,7 @@ export default function App() {
     icecastPort: "8000",
     icecastSourcePass: "hackme",
     icecastAdminPass: "hackme",
-    icecastMount: "7b_records",
+    icecastMount: "stream.mp3",
     bitrate: "320",
     sampleRate: "44100"
   });
@@ -647,6 +647,17 @@ export default function App() {
                       <button 
                          type="button"
                          onClick={() => {
+                           const mount = settings.icecastMount.startsWith('/') ? settings.icecastMount : `/${settings.icecastMount}`;
+                           const url = `http://${config.localIp || 'localhost'}:${settings.icecastPort}${mount}`;
+                           window.open(url, '_blank');
+                         }}
+                         className="px-6 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold transition-all uppercase tracking-widest"
+                      >
+                        Test Stream
+                      </button>
+                      <button 
+                         type="button"
+                         onClick={() => {
                            const defaults = {
                             device: "hw:1,0",
                             icecastHost: "localhost",
@@ -793,7 +804,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.4</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.6</div>
         </div>
       </motion.div>
 

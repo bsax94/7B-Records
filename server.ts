@@ -53,7 +53,7 @@ async function startServer() {
     icecastPort: "8000",
     icecastSourcePass: "hackme",
     icecastAdminPass: "hackme",
-    icecastMount: "7b_records",
+    icecastMount: "stream.mp3",
     bitrate: "320",
     sampleRate: "44100"
   };
@@ -193,14 +193,9 @@ async function startServer() {
             if (parts.length > 7) {
               const name = parts[3].replace(/\\/g, "");
               const ip = parts[7];
-              // Prioritize IPv4 if we can find it in the parts
-              let bestIp = ip;
-              for (const p of parts) {
-                if (p.includes('.') && p.split('.').length === 4) {
-                  bestIp = p;
-                  break;
-                }
-              }
+              // Prioritize IPv4 strictly for casting stability
+              const ipParts = parts.filter(p => p.includes('.') && p.split('.').length === 4);
+              const bestIp = ipParts.length > 0 ? ipParts[0] : parts[7];
               devices.push(`${name} [${bestIp}]`);
             }
           }
@@ -406,7 +401,9 @@ name            = 7B Records Live
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
         } else if (!isLive) {
-          addLog("WARNING: Stream did not go live. Please verify Icecast configuration.");
+          addLog("CRITICAL ERROR: DarkIce could not reach the Icecast mount.");
+          addLog(`TIP: Ensure the Source Password in 'Settings' matches the one used in setup_icecast.sh.`);
+          addLog(`Dashboard is currently using: ${streamSettings.icecastSourcePass}`);
         }
 
         const mount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
