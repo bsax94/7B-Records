@@ -18,6 +18,12 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 5. Build the production application.
 6. **Create a "7B Records" icon on your Desktop.**
 
+## 🔄 Updating
+To update the app to the latest version without deleting anything:
+```bash
+cd ~/7B-Records && chmod +x update.sh && ./update.sh
+```
+
 ## 🛠 Features
 
 *   **Cyberpunk UI**: Optimized for 800x480 Pi displays.

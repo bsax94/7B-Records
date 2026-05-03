@@ -118,7 +118,10 @@ async function startServer() {
       const uniqueDevices = Array.from(new Set(devices));
 
       if (uniqueDevices.length === 0) {
-        addLog("Scan complete: 0 physical devices detected in output.");
+        addLog(`Scan complete: 0 physical devices detected. Raw output length: ${output.length} characters.`);
+        if (output.length > 0) {
+          addLog(`System trace: ${output.substring(0, 100).replace(/\n/g, ' ')}...`);
+        }
         // We provide a fallback for UI testing/visibility if nothing was found
         res.json(["Living Room Speaker (Demo)", "Kitchen Hub (Demo)"]);
       } else {

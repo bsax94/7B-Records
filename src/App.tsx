@@ -414,8 +414,12 @@ function CircularVisualizer({ active }: { active: boolean }) {
     <div className="relative w-[340px] h-[340px] flex items-center justify-center shrink-0 scale-90 sm:scale-100">
       {/* Vinyl Record Base */}
       <motion.div
-        animate={active ? { rotate: 360 } : { rotate: 0 }}
-        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+        animate={active ? { rotate: [0, 360] } : { rotate: 0 }}
+        transition={{ 
+          duration: 4, 
+          repeat: Infinity, 
+          ease: "linear" 
+        }}
         className="relative w-[300px] h-[300px] rounded-full bg-black flex items-center justify-center overflow-hidden border-[6px] border-[#1a1a1a] shadow-[0_0_60px_rgba(255,0,255,0.2)]"
       >
         {/* Grooves with Synth Effect */}

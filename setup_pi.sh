@@ -14,6 +14,14 @@ echo "📡 Enabling network discovery services..."
 sudo systemctl enable avahi-daemon
 sudo systemctl start avahi-daemon
 
+# Open Firewall ports if ufw is present
+if command -v ufw > /dev/null; then
+    echo "🛡️  Configuring firewall for mDNS and streaming..."
+    sudo ufw allow 5353/udp
+    sudo ufw allow 8000/tcp
+    sudo ufw allow 8008:8010/tcp
+fi
+
 # Ensure Icecast is listening on all interfaces (0.0.0.0) instead of just localhost
 echo "🔧 Optimizing Icecast configuration for network casting..."
 if [ -f "/etc/icecast2/icecast.xml" ]; then
