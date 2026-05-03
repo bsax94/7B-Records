@@ -254,12 +254,21 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-[9px] font-bold text-pink-400 uppercase tracking-tighter mb-1.5">Target Receiver</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Target Receiver</label>
+                <button 
+                  onClick={fetchChromecasts}
+                  className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
+                >
+                  <RefreshCw className="w-2 h-2" /> Refresh
+                </button>
+              </div>
               <select 
                 value={config.chromecast}
                 onChange={(e) => setConfig({ ...config, chromecast: e.target.value })}
                 className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
               >
+                <option value="">Select receiver...</option>
                 {chromecasts.map(c => (
                   <option key={c} value={c}>{c.substring(0, 18)}</option>
                 ))}
