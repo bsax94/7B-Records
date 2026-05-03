@@ -39,12 +39,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Request logger
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-  });
-
   let darkIceProcess: ChildProcess | any = null;
   let mkChromecastProcess: ChildProcess | any = null;
   let streamStartTime: number | null = null;
@@ -65,14 +59,12 @@ async function startServer() {
     }
   };
 
-  // API Routes
-  const apiRouter = express.Router();
-
-  apiRouter.get("/health", (req, res) => {
+  // API Routes (Defined directly on app object)
+  app.get("/api/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
-  apiRouter.get("/status", (req, res) => {
+  app.get("/api/status", (req, res) => {
     try {
       const uptimeMinutes = streamStartTime 
         ? Math.floor((Date.now() - streamStartTime) / 60000)
@@ -92,15 +84,15 @@ async function startServer() {
     }
   });
 
-  apiRouter.get("/logs", (req, res) => {
+  app.get("/api/logs", (req, res) => {
     res.json({ logs });
   });
 
-  apiRouter.get("/logs/download", (req, res) => {
+  app.get("/api/logs/download", (req, res) => {
     res.download(LOG_FILE, "7b-records-debug.log");
   });
 
-  apiRouter.get("/devices", async (req, res) => {
+  app.get("/api/devices", async (req, res) => {
     try {
       const { stdout } = await execAsync("arecord -l");
       const devices = stdout.split('\n')
@@ -120,7 +112,7 @@ async function startServer() {
     }
   });
 
-  apiRouter.get("/chromecasts", async (req, res) => {
+  app.get("/api/chromecasts", async (req, res) => {
     try {
       addLog("Scanning for Chromecasts (mDNS)...");
       
@@ -173,7 +165,7 @@ async function startServer() {
     }
   });
 
-  apiRouter.post("/stream/start", async (req, res) => {
+  app.post("/api/stream/start", async (req, res) => {
     const { device, chromecast, password, bitrate } = req.body;
 
     if (darkIceProcess || mkChromecastProcess) {
@@ -202,7 +194,7 @@ async function startServer() {
       }
 
       // IMPORTANT: config string must have NO leading spaces for DarkIce sections [header]
-      const config = `[general]
+      const configText = `[general]
 duration        = 0
 bufferSecs      = 2
 reconnect       = yes
@@ -223,13 +215,21 @@ password        = ${password || 'hackme'}
 mountPoint      = stream.mp3
 name            = PiCastStream
 `;
-      await fs.writeFile("darkice.cfg", config);
+      await fs.writeFile("darkice.cfg", configText);
       addLog("Generated darkice.cfg (Fixed formatting)");
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
       
       const spawnProcess = (cmd: string, args: string[], name: string) => {
-        const proc = spawn(cmd, args);
+        // Fallback for catt if installed via pip3 in .local/bin
+        let finalCmd = cmd;
+        if (cmd === "catt") {
+          const homeLocalBin = path.join(process.env.HOME || '', '.local/bin/catt');
+          if (fs.existsSync(homeLocalBin)) {
+            finalCmd = homeLocalBin;
+          }
+        }
+        const proc = spawn(finalCmd, args);
         
         proc.on('error', (err: any) => {
           if (err.code === 'ENOENT') {
@@ -255,8 +255,8 @@ name            = PiCastStream
           if (name === 'Cast' || name === 'Catt') mkChromecastProcess = null;
         });
 
-        const checkAuthError = (msg: string) => {
-          if (name === 'DarkIce' && (msg.includes("can't open connector") || msg.includes("connector [0]"))) {
+        const checkAuthError = (logMsgText: string) => {
+          if (name === 'DarkIce' && (logMsgText.includes("can't open connector") || logMsgText.includes("connector [0]"))) {
             addLog("CRITICAL: Icecast connection failed. Likely incorrect password. DEFAULT is 'hackme'. Check settings.");
           }
         };
@@ -331,7 +331,7 @@ name            = PiCastStream
     }
   });
 
-  apiRouter.post("/stream/stop", (req, res) => {
+  app.post("/api/stream/stop", (req, res) => {
     if (darkIceProcess) {
       if (darkIceProcess.kill) darkIceProcess.kill();
       darkIceProcess = null;
@@ -347,8 +347,11 @@ name            = PiCastStream
     res.json({ success: true });
   });
 
-  // Mount API Router
-  app.use("/api", apiRouter);
+  // Request logger
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

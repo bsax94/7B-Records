@@ -17,6 +17,12 @@ if ! command -v catt &> /dev/null; then
     pip3 install catt --break-system-packages || pip3 install catt || echo "⚠️  Could not install catt."
 fi
 
+# Ensure .local/bin is in PATH for current and future sessions (for catt)
+if ! echo "$PATH" | grep -q ".local/bin"; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
 # Ensure avahi-daemon is running (required for Chromecast discovery)
 echo "📡 Enabling network discovery services..."
 sudo systemctl enable avahi-daemon
@@ -28,22 +34,6 @@ if command -v ufw > /dev/null; then
     sudo ufw allow 5353/udp
     sudo ufw allow 8000/tcp
     sudo ufw allow 8008:8010/tcp
-fi
-
-# Specialized setup for Streaming Services (Icecast2 & DarkIce)
-if [ -f "scripts/setup_streaming.sh" ]; then
-    chmod +x scripts/setup_streaming.sh
-    ./scripts/setup_streaming.sh
-elif [ -f "/scripts/setup_streaming.sh" ]; then
-    chmod +x /scripts/setup_streaming.sh
-    /scripts/setup_streaming.sh
-else
-    # Fallback to legacy configuration if script is missing
-    echo "🔧 Optimizing Icecast configuration (Legacy)..."
-    if [ -f "/etc/icecast2/icecast.xml" ]; then
-        sudo sed -i 's/<bind-address>127.0.0.1<\/bind-address>/<bind-address>0.0.0.0<\/bind-address>/g' /etc/icecast2/icecast.xml
-        sudo systemctl restart icecast2
-    fi
 fi
 
 # 2. Setup the project folder
@@ -64,6 +54,13 @@ else
         cd "$PROJECT_NAME"
         PROJECT_DIR=$(pwd)
     fi
+fi
+
+# Specialized setup for Streaming Services (Icecast2 & DarkIce)
+# Now that we are in the repo, the script is available
+if [ -f "scripts/setup_streaming.sh" ]; then
+    chmod +x scripts/setup_streaming.sh
+    ./scripts/setup_streaming.sh
 fi
 
 echo "📂 Working directory: $PROJECT_DIR"
