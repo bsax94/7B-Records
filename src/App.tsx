@@ -56,6 +56,8 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState({ devices: false, casting: false, action: false });
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success'} | null>(null);
+  const [deviceFlash, setDeviceFlash] = useState(false);
+  const [receiverFlash, setReceiverFlash] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -282,6 +284,10 @@ export default function App() {
                   const deviceName = selectedDevice?.name || deviceId;
                   setConfig({ ...config, device: deviceId });
                   
+                  // Flash feedback
+                  setDeviceFlash(true);
+                  setTimeout(() => setDeviceFlash(false), 600);
+                  
                   if (selectedDevice?.type === 'mock') {
                     showToast(`Mode: Testing with Mock Audio`, 'info');
                   } else if (deviceId) {
@@ -290,6 +296,8 @@ export default function App() {
                 }}
                 disabled={loading.devices}
                 className={`w-full bg-[var(--panel)] border rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 ${
+                  deviceFlash ? 'ring-2 ring-pink-500 bg-pink-500/10' : ''
+                } ${
                   devices.find(d => d.id === config.device)?.type === 'mock' 
                     ? 'border-cyan-500/50 shadow-[0_0_8px_rgba(34,211,238,0.2)]' 
                     : 'border-[var(--border)] focus:border-pink-500 focus:ring-pink-500/30'
@@ -346,10 +354,17 @@ export default function App() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setConfig({ ...config, chromecast: val });
+                  
+                  // Flash feedback
+                  setReceiverFlash(true);
+                  setTimeout(() => setReceiverFlash(false), 600);
+                  
                   if (val) showToast(`Output target set to ${val.substring(0, 15)}...`);
                 }}
                 disabled={loading.casting}
-                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50"
+                className={`w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50 ${
+                  receiverFlash ? 'ring-2 ring-cyan-500 bg-cyan-500/10' : ''
+                }`}
               >
                 <option value="">{loading.casting ? 'Searching for devices...' : 'Select receiver'}</option>
                 {chromecasts.map(c => (
@@ -567,13 +582,13 @@ function CircularVisualizer({ active }: { active: boolean }) {
           {/* True Center Hole */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-black rounded-full z-20 border border-white/20" />
           
-          <div className="text-[10px] font-black text-white px-2 text-center leading-none uppercase tracking-widest relative z-10 italic -translate-y-[26px]">
+          <div className="text-[10px] font-black text-white px-2 text-center leading-none uppercase tracking-widest relative z-10 italic -translate-y-[32px]">
             7B
           </div>
-          <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[22px]">
-            RECORDS
+          <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
+             RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.3</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.7</div>
         </div>
       </motion.div>
 

@@ -307,8 +307,17 @@ name            = PiCastStream
              if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
              
              const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
-             addLog(`mkchromecast bug detected! Switching to 'catt' (Cast All The Things) backup for ${chromecast}...`);
-             mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
+             addLog(`mkchromecast bug detected! Switching to 'catt' backup...`);
+             try {
+               mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
+               if (mkChromecastProcess && mkChromecastProcess.pid) {
+                 addLog(`Successfully spawned backup 'catt' (PID: ${mkChromecastProcess.pid})`);
+               } else {
+                 addLog("ERROR: failed to spawn 'catt' or no PID.");
+               }
+             } catch (spawnErr) {
+               addLog(`CRITICAL Error while spawning 'catt': ${spawnErr}`);
+             }
           }
         });
         

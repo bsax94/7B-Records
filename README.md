@@ -21,19 +21,18 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 ## 🔄 Updating & Fixing Errors
 If you see **"Not a JSON response"** or **"0 chromecast devices"**, you need to sync the latest system files.
 
-### Option A: The Automatic Way (Recommended)
-If you have `update.sh` in your folder:
+### The Easy Way (Run from anywhere)
+If you followed the standard install, just run:
 ```bash
-cd ~/7B_records || cd ~/7B-Records
-chmod +x update.sh && ./update.sh
+~/7B_records/update.sh
 ```
+*(Or use `~/7B-Records/update.sh` depending on your folder name)*
 
-### Option B: The Manual Way (If update.sh is missing)
-Run these commands in your project folder:
+### The Manual Way
+Navigate to your folder and run the script:
 ```bash
-git pull origin main
-npm install
-npm run build
+cd ~/7B_records
+chmod +x update.sh && ./update.sh
 ```
 Then restart your server (or use the Desktop icon).
 
