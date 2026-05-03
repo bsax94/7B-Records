@@ -7,7 +7,7 @@ echo "🎵 Starting 7B Records Setup for Raspberry Pi..."
 echo "📦 Installing system dependencies..."
 sudo apt update
 # Try chromium-browser first, then chromium if it fails (common on newer Debian versions)
-sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev || sudo apt install -y chromium avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev
+sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev libexiv2-dev || sudo apt install -y chromium avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev
 
 # Ensure avahi-daemon is running (required for Chromecast discovery)
 echo "📡 Enabling network discovery services..."

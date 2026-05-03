@@ -12,6 +12,9 @@ const execAsync = promisify(exec);
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
+    // Skip virtual/bridge interfaces common on Pi/Linux
+    if (name.includes('docker') || name.includes('veth') || name.includes('br-')) continue;
+    
     for (const iface of interfaces[name] || []) {
       if (iface.family === 'IPv4' && !iface.internal) {
         return iface.address;
@@ -49,22 +52,27 @@ async function startServer() {
 
   // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", time: new Date().toISOString() });
   });
 
   app.get("/api/status", (req, res) => {
-    const uptimeMinutes = streamStartTime 
-      ? Math.floor((Date.now() - streamStartTime) / 60000)
-      : 0;
+    try {
+      const uptimeMinutes = streamStartTime 
+        ? Math.floor((Date.now() - streamStartTime) / 60000)
+        : 0;
 
-    res.json({
-      streaming: !!darkIceProcess,
-      casting: !!mkChromecastProcess,
-      icecast: true,
-      mock: mockMode,
-      uptimeMinutes,
-      localIp: LOCAL_IP
-    });
+      res.json({
+        streaming: !!darkIceProcess,
+        casting: !!mkChromecastProcess,
+        icecast: true,
+        mock: mockMode,
+        uptimeMinutes,
+        localIp: LOCAL_IP
+      });
+    } catch (error) {
+      console.error("Status error:", error);
+      res.status(500).json({ error: "Status failed" });
+    }
   });
 
   app.get("/api/logs", (req, res) => {
@@ -152,6 +160,13 @@ async function startServer() {
     }
 
     try {
+      // Clean up any stray processes first
+      addLog("Cleaning up previous session processes...");
+      try {
+        await execAsync("pkill -9 darkice || true");
+        await execAsync("pkill -9 mkchromecast || true");
+      } catch (e) {}
+
       const config = `
 [general]
 duration        = 0
@@ -191,6 +206,12 @@ name            = PiCastStream
           }
         });
 
+        proc.on('exit', (code) => {
+          addLog(`${name} process exited with code ${code}`);
+          if (name === 'DarkIce') darkIceProcess = null;
+          if (name === 'Cast') mkChromecastProcess = null;
+        });
+
         proc.stdout?.on('data', (data) => addLog(`${name}: ${data}`));
         proc.stderr?.on('data', (data) => addLog(`${name} Stderr: ${data}`));
         
@@ -200,10 +221,10 @@ name            = PiCastStream
       darkIceProcess = spawnProcess("darkice", ["-c", "darkice.cfg"], "DarkIce");
       streamStartTime = Date.now();
 
-      // Give Icecast a moment to start the stream before telling Chromecast to fetch it
+      // Give Icecast more time to buffer and initialize the mount point
       setTimeout(() => {
         if (!darkIceProcess || !darkIceProcess.pid) {
-          addLog("DASHBOARD: Simulating DarkIce process (Hardware not found)");
+          addLog("DASHBOARD: Simulating DarkIce (Hardware not responding)");
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
         }
@@ -214,20 +235,23 @@ name            = PiCastStream
         // mkchromecast flags:
         // -n: Name of the chromecast
         // -u: Source URL
-        // -c: Codec
+        // -c: Codec (mp3)
+        // --control: Enable playback control
+        // --p: Port for the control server (optional but helpful)
         mkChromecastProcess = spawnProcess("mkchromecast", [
           "--name", chromecast,
           "--source-url", streamUrl,
-          "-c", "mp3"
+          "-c", "mp3",
+          "--control"
         ], "Cast");
 
         setTimeout(() => {
           if (!mkChromecastProcess || !mkChromecastProcess.pid) {
-            addLog("DASHBOARD: Simulating Cast process (Chromecast tools not found)");
+            addLog("DASHBOARD: Simulating Cast (Process fallback)");
             mkChromecastProcess = { kill: () => {}, pid: 1000 };
           }
-        }, 1500);
-      }, 3000);
+        }, 2000);
+      }, 5000); // 5 second delay for buffering
 
       res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:8000/stream.mp3` });
     } catch (error) {

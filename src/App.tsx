@@ -106,6 +106,8 @@ export default function App() {
       if (!res.ok) throw new Error(`Status HTTP error! status: ${res.status}`);
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Status: Not a JSON response. Received:", text.substring(0, 100));
         throw new TypeError("Status: Not a JSON response");
       }
       const data = await res.json();
@@ -126,6 +128,8 @@ export default function App() {
       }
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Logs: Not a JSON response. Received:", text.substring(0, 100));
         throw new TypeError("Logs: Not a JSON response");
       }
       const data = await res.json();
@@ -499,7 +503,7 @@ function MetricCard({ icon, title, value, color = 'pink' }: { icon: React.ReactN
   return (
     <div className="bg-[var(--panel)] p-2 rounded-lg border border-[var(--border)] flex items-center gap-3">
       <div className={`p-1.5 rounded-md ${color === 'cyan' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-pink-500/10 text-pink-500'}`}>
-        {React.cloneElement(icon as React.ReactElement, { className: 'w-3.5 h-3.5' })}
+        {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5' }) : icon}
       </div>
       <div>
         <div className="text-[7px] font-black text-[var(--ink-secondary)] uppercase tracking-[0.1em] leading-none mb-1">{title}</div>
