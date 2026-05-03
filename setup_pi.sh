@@ -10,14 +10,25 @@ sudo apt update
 sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser || sudo apt install -y chromium
 
 # 2. Setup the project folder
-# Ensure we are in the correct directory
-if [[ "$PWD" != *7B_records* ]]; then
-    if [ -d "7B_records" ]; then
-        cd 7B_records
+PROJECT_NAME="7B_records"
+REPO_URL="https://github.com/starlandmusic/7B_records.git"
+
+# Check if we are inside the project folder already
+if [[ "$PWD" == *"$PROJECT_NAME"* ]]; then
+    PROJECT_DIR=$(pwd)
+else
+    # If not, check if it exists in the current directory
+    if [ -d "$PROJECT_NAME" ]; then
+        cd "$PROJECT_NAME"
+        PROJECT_DIR=$(pwd)
+    else
+        echo "📂 Cloning repository..."
+        git clone $REPO_URL
+        cd "$PROJECT_NAME"
+        PROJECT_DIR=$(pwd)
     fi
 fi
 
-PROJECT_DIR=$(pwd)
 echo "📂 Working directory: $PROJECT_DIR"
 
 # 3. Install Node.js dependencies
@@ -30,11 +41,11 @@ if [ ! -f "package.json" ] || ! grep -q "\"build\":" "package.json"; then
 {
   "name": "7b-records",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node server.ts",
+    "start": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -42,13 +53,13 @@ if [ ! -f "package.json" ] || ! grep -q "\"build\":" "package.json"; then
   },
   "dependencies": {
     "@google/genai": "^1.30.2",
-    "@tailwindcss/vite": "^4.0.9",
+    "@tailwindcss/vite": "^4.0.0",
     "express": "^4.21.2",
     "lucide-react": "^0.479.0",
     "motion": "^12.4.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "4.0.9",
+    "tailwindcss": "4.0.0",
     "vite": "^6.2.1"
   },
   "devDependencies": {
@@ -59,7 +70,7 @@ if [ ! -f "package.json" ] || ! grep -q "\"build\":" "package.json"; then
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
-    "tailwindcss": "4.0.9",
+    "tailwindcss": "4.0.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }
@@ -129,6 +140,61 @@ if [ ! -f "index.html" ]; then
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+EOF
+fi
+
+# Ensure src directory and basic files exist
+if [ ! -d "src" ]; then
+    echo "⚠️  Missing src directory. Creating basic structure..."
+    mkdir -p src
+fi
+
+if [ ! -f "src/main.tsx" ]; then
+    cat <<EOF > src/main.tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+EOF
+fi
+
+if [ ! -f "src/index.css" ]; then
+    cat <<EOF > src/index.css
+@import "tailwindcss";
+EOF
+fi
+
+# Ensure server.ts exists
+if [ ! -f "server.ts" ]; then
+    echo "⚠️  Missing server.ts. Creating..."
+    cat <<EOF > server.ts
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// In production, serve the built files
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(\`7B Records server running at http://localhost:\${PORT}\`);
+});
 EOF
 fi
 
