@@ -219,7 +219,7 @@ format          = mp3
 bitrate         = ${bitrate || 192}
 server          = localhost
 port            = 8000
-password        = ${password || 'raspberry'}
+password        = ${password || 'hackme'}
 mountPoint      = stream.mp3
 name            = PiCastStream
 `;
@@ -233,7 +233,11 @@ name            = PiCastStream
         
         proc.on('error', (err: any) => {
           if (err.code === 'ENOENT') {
-            addLog(`WARNING: ${name} binary not found. Entering Mock Mode.`);
+            if (name === 'Catt') {
+              addLog(`WARNING: 'catt' binary not found. Please run 'sudo apt install catt' or 'pip3 install catt' on your Pi.`);
+            } else {
+              addLog(`WARNING: ${name} binary not found. Entering Mock Mode.`);
+            }
             mockMode = true;
           } else {
             addLog(`${name} Error: ${err.message}`);
@@ -242,33 +246,38 @@ name            = PiCastStream
 
         proc.on('exit', (code) => {
           addLog(`${name} process exited with code ${code}`);
-          if (name === 'DarkIce') darkIceProcess = null;
+          if (name === 'DarkIce') {
+            darkIceProcess = null;
+            if (code === 1 && !mockMode) {
+               addLog("DarkIce failed to start. Tip: Check if another app is using the audio device or if the Icecast password is correct.");
+            }
+          }
           if (name === 'Cast' || name === 'Catt') mkChromecastProcess = null;
         });
+
+        const checkAuthError = (msg: string) => {
+          if (name === 'DarkIce' && (msg.includes("can't open connector") || msg.includes("connector [0]"))) {
+            addLog("CRITICAL: Icecast connection failed. Likely incorrect password. DEFAULT is 'hackme'. Check settings.");
+          }
+        };
 
         proc.stdout?.on('data', (data) => {
           const logMsg = data.toString();
           addLog(`${name}: ${logMsg}`);
-          
-          if (name === 'DarkIce' && logMsg.includes("can't open connector [0]")) {
-             addLog("CRITICAL: DarkIce could not connect to Icecast. This usually means the Icecast PASSWORD is incorrect or Icecast is not running.");
-          }
+          checkAuthError(logMsg);
         });
+        
         proc.stderr?.on('data', (data) => {
           const logMsg = data.toString();
           addLog(`${name} Stderr: ${logMsg}`);
-          
-          if (name === 'DarkIce' && logMsg.includes("can't open connector [0]")) {
-             addLog("CRITICAL: DarkIce authentication failure! Please check your Icecast password in settings.");
-          }
+          checkAuthError(logMsg);
           
           // Monitor for the mkchromecast bug
           if (name === 'Cast' && logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'")) {
-             addLog("mkchromecast bug detected! Switching to 'catt' backup...");
              if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
              
              const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
-             addLog(`mkchromecast bug detected! Switching to 'catt' backup for ${chromecast}...`);
+             addLog(`mkchromecast bug detected! Switching to 'catt' (Cast All The Things) backup for ${chromecast}...`);
              mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
           }
         });

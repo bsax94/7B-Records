@@ -53,8 +53,14 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState({ devices: false, casting: false, action: false });
+  const [notification, setNotification] = useState<{message: string, type: 'info' | 'success'} | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const showToast = (message: string, type: 'info' | 'success' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -235,12 +241,23 @@ export default function App() {
         <aside className="w-56 border-r border-[var(--border)] bg-[var(--card)]/50 p-4 flex flex-col gap-4">
           <section className="space-y-3">
             <div>
-              <label className="block text-[9px] font-bold text-pink-400 uppercase tracking-tighter mb-1.5">Input Deck</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Input Deck</label>
+                {loading.devices && <RefreshCw className="w-2.5 h-2.5 animate-spin text-pink-400/70" />}
+              </div>
               <select 
                 value={config.device}
-                onChange={(e) => setConfig({ ...config, device: e.target.value })}
-                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500/30 transition-all font-mono"
+                onChange={(e) => {
+                  const deviceId = e.target.value;
+                  const deviceName = devices.find(d => d.id === deviceId)?.name || deviceId;
+                  setConfig({ ...config, device: deviceId });
+                  showToast(`Input linked: ${deviceName.substring(0, 15)}...`);
+                }}
+                disabled={loading.devices}
+                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500/30 transition-all font-mono disabled:opacity-50"
               >
+                {loading.devices && <option disabled>Scanning devices...</option>}
+                {!loading.devices && devices.length === 0 && <option disabled>No devices found</option>}
                 {devices.map(d => (
                   <option key={d.id} value={d.id}>{d.name.substring(0, 18)}</option>
                 ))}
@@ -267,17 +284,23 @@ export default function App() {
                 <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Target Receiver</label>
                 <button 
                   onClick={fetchChromecasts}
-                  className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
+                  disabled={loading.casting}
+                  className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
                 >
-                  <RefreshCw className="w-2 h-2" /> Refresh
+                  <RefreshCw className={`w-2 h-2 ${loading.casting ? 'animate-spin' : ''}`} /> {loading.casting ? 'Scanning...' : 'Refresh'}
                 </button>
               </div>
               <select 
                 value={config.chromecast}
-                onChange={(e) => setConfig({ ...config, chromecast: e.target.value })}
-                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setConfig({ ...config, chromecast: val });
+                  if (val) showToast(`Output target set to ${val.substring(0, 15)}...`);
+                }}
+                disabled={loading.casting}
+                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50"
               >
-                <option value="">Select receiver...</option>
+                <option value="">{loading.casting ? 'Searching for devices...' : 'Select receiver...'}</option>
                 {chromecasts.map(c => (
                   <option key={c} value={c}>{c.substring(0, 18)}</option>
                 ))}
@@ -424,6 +447,25 @@ export default function App() {
 
       {/* Mini Retro CRT scanlines effect */}
       <div className="absolute inset-0 pointer-events-none z-[100] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[size:100%_4px,3px_100%] opacity-30" />
+
+      {/* Toast Notifications */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className={`absolute bottom-6 right-6 z-[200] px-4 py-2 rounded-lg border backdrop-blur-md shadow-2xl flex items-center gap-3 ${
+              notification.type === 'success' 
+                ? 'bg-pink-500/20 border-pink-500/50 text-pink-400' 
+                : 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${notification.type === 'success' ? 'bg-pink-500' : 'bg-cyan-500'}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{notification.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

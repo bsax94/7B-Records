@@ -30,7 +30,7 @@ echo "📥 [2/4] Pulling latest updates from GitHub..."
 git pull origin main || git pull || echo "⚠️  Git pull failed. You may need to manually resolve conflicts."
 
 echo "📦 [3/4] refreshing dependencies..."
-sudo apt update && sudo apt install -y catt || echo "⚠️  Could not install catt."
+sudo apt update && sudo apt install -y catt || pip3 install catt || echo "⚠️  Could not install catt via apt or pip."
 npm install
 
 echo "🏗️  [4/4] Rebuilding UI..."
