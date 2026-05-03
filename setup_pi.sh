@@ -4,9 +4,10 @@
 echo "🎵 Starting 7B Records Setup for Raspberry Pi..."
 
 # 1. Update and install system dependencies
-echo "📦 Installing system dependencies (Icecast, DarkIce, Node.js)..."
+echo "📦 Installing system dependencies..."
 sudo apt update
-sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser
+# Try chromium-browser first, then chromium if it fails (common on newer Debian versions)
+sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser || sudo apt install -y chromium
 
 # 2. Setup the project folder
 # Ensure we are in the correct directory
@@ -20,13 +21,12 @@ PROJECT_DIR=$(pwd)
 echo "📂 Working directory: $PROJECT_DIR"
 
 # 3. Install Node.js dependencies
-echo "🚀 Installing application dependencies..."
+echo "🚀 Preparing application files..."
 
-# Detect if package.json is broken (the user reported a version with lockfileVersion: 3 instead of actual scripts)
-if [ -f "package.json" ]; then
-    if ! grep -q "\"build\":" "package.json"; then
-        echo "⚠️  Detected broken or incomplete package.json. Recreating it..."
-        cat <<EOF > package.json
+# If package.json is missing or broken, recreate it
+if [ ! -f "package.json" ] || ! grep -q "\"build\":" "package.json"; then
+    echo "⚠️  Missing or broken package.json detected. Recreating..."
+    cat <<EOF > package.json
 {
   "name": "7b-records",
   "private": true,
@@ -42,11 +42,13 @@ if [ -f "package.json" ]; then
   },
   "dependencies": {
     "@google/genai": "^1.30.2",
+    "@tailwindcss/vite": "^4.0.9",
     "express": "^4.21.2",
     "lucide-react": "^0.479.0",
     "motion": "^12.4.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tailwindcss": "4.0.9",
     "vite": "^6.2.1"
   },
   "devDependencies": {
@@ -63,16 +65,77 @@ if [ -f "package.json" ]; then
   }
 }
 EOF
-    fi
-    
-    npm install
-    echo "🏗️ Building the application..."
-    npm run build
-else
-    echo "❌ Error: package.json not found in $PROJECT_DIR"
-    echo "Please move this script into the 7B_records folder or 'cd' into it first."
-    exit 1
 fi
+
+# Ensure tsconfig.json exists
+if [ ! -f "tsconfig.json" ]; then
+    echo "⚠️  Missing tsconfig.json. Creating..."
+    cat <<EOF > tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "server.ts"]
+}
+EOF
+fi
+
+# Ensure vite.config.ts exists
+if [ ! -f "vite.config.ts" ]; then
+    echo "⚠️  Missing vite.config.ts. Creating..."
+    cat <<EOF > vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    port: 3000,
+    host: '0.0.0.0'
+  }
+})
+EOF
+fi
+
+# Ensure index.html exists
+if [ ! -f "index.html" ]; then
+    echo "⚠️  Missing index.html. Creating..."
+    cat <<EOF > index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>7B Records Control</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+EOF
+fi
+
+echo "📦 Running npm install..."
+npm install
+echo "🏗️  Building the application..."
+npm run build
 
 # 4. Create the Desktop Shortcut
 echo "🖥️  Creating Desktop Shortcut..."
