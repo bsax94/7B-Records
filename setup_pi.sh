@@ -102,7 +102,7 @@ cat <<EOF > $DESKTOP_FILE
 [Desktop Entry]
 Name=7B Records
 Comment=Synthwave Audio Broadcast Controller
-Exec=lxterminal -e "bash -c 'cd $PROJECT_DIR && npm start; exec bash'"
+Exec=lxterminal -e "bash -c 'cd \"$PROJECT_DIR\" && npm start; exec bash'"
 Icon=multimedia-audio-player
 Terminal=false
 Type=Application
