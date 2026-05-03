@@ -30,7 +30,12 @@ echo "📥 [2/4] Pulling latest updates from GitHub..."
 git pull origin main || git pull || echo "⚠️  Git pull failed. You may need to manually resolve conflicts."
 
 echo "📦 [3/4] refreshing dependencies..."
-sudo apt update && sudo apt install -y catt || pip3 install catt || echo "⚠️  Could not install catt via apt or pip."
+# Ensure pip3 is available
+sudo apt update && sudo apt install -y python3-pip
+# Robust catt install
+if ! command -v catt &> /dev/null && ! [ -f "$HOME/.local/bin/catt" ]; then
+    sudo apt install -y catt || pip3 install catt --break-system-packages --user || pip3 install catt --user || echo "⚠️  Could not install catt."
+fi
 npm install
 
 echo "🏗️  [4/4] Rebuilding UI..."

@@ -10,18 +10,24 @@ sudo apt update
 sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev libexiv2-dev python3-pip || \
 sudo apt install -y chromium avahi-daemon avahi-utils libnss-mdns python3-pychromecast python3-flask libdbus-glib-1-dev python3-pip
 
-# Install catt via pip3 if not in apt (happens on some Debian/Pi versions)
-if ! command -v catt &> /dev/null; then
-    echo "📦 Installing 'catt' via pip3..."
-    sudo apt install -y python3-pip
-    pip3 install catt --break-system-packages || pip3 install catt || echo "⚠️  Could not install catt."
-fi
-
 # Ensure .local/bin is in PATH for current and future sessions (for catt)
 if ! echo "$PATH" | grep -q ".local/bin"; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
     export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# Specialized catt installation for PEP 668 (externally-managed-environment)
+install_catt() {
+    if ! command -v catt &> /dev/null && ! [ -f "$HOME/.local/bin/catt" ]; then
+        echo "📦 Installing 'catt'..."
+        sudo apt install -y catt || \
+        pip3 install catt --break-system-packages --user || \
+        pip3 install catt --user || \
+        echo "⚠️  Could not install catt via standard methods."
+    fi
+}
+
+install_catt
 
 # Ensure avahi-daemon is running (required for Chromecast discovery)
 echo "📡 Enabling network discovery services..."

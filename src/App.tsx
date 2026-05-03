@@ -32,6 +32,7 @@ import { motion, AnimatePresence } from 'motion/react';
 interface Device {
   id: string;
   name: string;
+  type?: 'hardware' | 'mock' | 'fallback';
 }
 
 interface Status {
@@ -118,7 +119,14 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Status: Not a JSON response. Ensure you've pulled latest server changes. Received:", text.substring(0, 100));
+        const snippet = text.substring(0, 200);
+        console.error("Status: Not a JSON response. Ensure you've pulled latest server changes. Received:", snippet);
+        
+        // If it looks like HTML, it's likely the SPA fallback
+        if (snippet.trim().toLowerCase().startsWith('<!doctype html>')) {
+          setLogs(prev => [...prev.slice(-100), `[UI ERROR] API returned HTML. Check server routes or restart.`]);
+        }
+        
         throw new TypeError("Status: Not a JSON response");
       }
       const data = await res.json();
@@ -245,16 +253,37 @@ export default function App() {
                 <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Input Deck</label>
                 {loading.devices && <RefreshCw className="w-2.5 h-2.5 animate-spin text-pink-400/70" />}
               </div>
+              
+              {/* Hardware Warning Alert */}
+              {!loading.devices && devices.filter(d => d.type === 'hardware').length === 0 && (
+                <div className="mb-2 p-1.5 bg-amber-500/10 border border-amber-500/30 rounded flex items-center gap-2">
+                  <VolumeX className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span className="text-[8px] text-amber-200 leading-tight">
+                    NO HARDWARE DETECTED. Connect a USB audio interface or check permissions.
+                  </span>
+                </div>
+              )}
+
               <select 
                 value={config.device}
                 onChange={(e) => {
                   const deviceId = e.target.value;
-                  const deviceName = devices.find(d => d.id === deviceId)?.name || deviceId;
+                  const selectedDevice = devices.find(d => d.id === deviceId);
+                  const deviceName = selectedDevice?.name || deviceId;
                   setConfig({ ...config, device: deviceId });
-                  showToast(`Input linked: ${deviceName.substring(0, 15)}...`);
+                  
+                  if (selectedDevice?.type === 'mock') {
+                    showToast(`Mode: Testing with Mock Audio`, 'info');
+                  } else {
+                    showToast(`Input linked: ${deviceName.substring(0, 15)}...`);
+                  }
                 }}
                 disabled={loading.devices}
-                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500/30 transition-all font-mono disabled:opacity-50"
+                className={`w-full bg-[var(--panel)] border rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 ${
+                  devices.find(d => d.id === config.device)?.type === 'mock' 
+                    ? 'border-cyan-500/50 shadow-[0_0_8px_rgba(34,211,238,0.2)]' 
+                    : 'border-[var(--border)] focus:border-pink-500 focus:ring-pink-500/30'
+                }`}
               >
                 {loading.devices && <option disabled>Scanning devices...</option>}
                 {!loading.devices && devices.length === 0 && <option disabled>No devices found</option>}

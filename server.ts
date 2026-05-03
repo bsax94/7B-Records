@@ -67,12 +67,14 @@ async function startServer() {
     next();
   });
 
-  // API Routes (Defined directly on app object)
-  app.get("/api/health", (req, res) => {
+  // API Routes
+  const apiRouter = express.Router();
+
+  apiRouter.get("/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
-  app.get("/api/status", (req, res) => {
+  apiRouter.get("/status", (req, res) => {
     try {
       const uptimeMinutes = streamStartTime 
         ? Math.floor((Date.now() - streamStartTime) / 60000)
@@ -92,35 +94,39 @@ async function startServer() {
     }
   });
 
-  app.get("/api/logs", (req, res) => {
+  apiRouter.get("/logs", (req, res) => {
     res.json({ logs });
   });
 
-  app.get("/api/logs/download", (req, res) => {
+  apiRouter.get("/logs/download", (req, res) => {
     res.download(LOG_FILE, "7b-records-debug.log");
   });
 
-  app.get("/api/devices", async (req, res) => {
+  apiRouter.get("/devices", async (req, res) => {
     try {
       const { stdout } = await execAsync("arecord -l");
-      const devices = stdout.split('\n')
+      const hardwareDevices = stdout.split('\n')
         .filter(line => line.includes('card'))
         .map(line => {
           const match = line.match(/card (\d+):.*device (\d+):/);
-          return match ? { id: `hw:${match[1]},${match[2]}`, name: line.trim() } : null;
+          return match ? { id: `hw:${match[1]},${match[2]}`, name: line.trim(), type: 'hardware' } : null;
         })
         .filter(Boolean);
-      if (devices.length === 0) throw new Error("No hardware devices");
-      res.json(devices);
+
+      const mockDevices = [
+        { id: "mock:1", name: "🚀 Mock Audio Device (Test)", type: 'mock' }
+      ];
+
+      res.json([...hardwareDevices, ...mockDevices]);
     } catch (error) {
       res.json([
-        { id: "hw:1,0", name: "Mock USB Audio Device (Card 1, Device 0)" },
-        { id: "hw:0,0", name: "Internal Audio (Card 0, Device 0)" }
+        { id: "mock:1", name: "🚀 Mock Audio Device (Test)", type: 'mock' },
+        { id: "hw:1,0", name: "⚠️ Hardware Not Found - Using hw:1,0 Fallback", type: 'fallback' }
       ]);
     }
   });
 
-  app.get("/api/chromecasts", async (req, res) => {
+  apiRouter.get("/chromecasts", async (req, res) => {
     try {
       addLog("Scanning for Chromecasts (mDNS)...");
       
@@ -173,7 +179,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/stream/start", async (req, res) => {
+  apiRouter.post("/stream/start", async (req, res) => {
     const { device, chromecast, password, bitrate } = req.body;
 
     if (darkIceProcess || mkChromecastProcess) {
@@ -339,7 +345,7 @@ name            = PiCastStream
     }
   });
 
-  app.post("/api/stream/stop", (req, res) => {
+  apiRouter.post("/stream/stop", (req, res) => {
     if (darkIceProcess) {
       if (darkIceProcess.kill) darkIceProcess.kill();
       darkIceProcess = null;
@@ -354,6 +360,14 @@ name            = PiCastStream
     mockMode = false;
     res.json({ success: true });
   });
+
+  // Catch-all for API router to prevent falling through to SPA handler
+  apiRouter.use((req, res) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.url}` });
+  });
+
+  // Mount API Router
+  app.use("/api", apiRouter);
 
   // Request logger
   app.use((req, res, next) => {
