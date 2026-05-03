@@ -59,6 +59,14 @@ async function startServer() {
     }
   };
 
+  // Request logger (MOVED TO TOP OF MIDDLEWARE)
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) {
+      console.log(`[API CALL] ${req.method} ${req.url}`);
+    }
+    next();
+  });
+
   // API Routes (Defined directly on app object)
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
@@ -70,7 +78,7 @@ async function startServer() {
         ? Math.floor((Date.now() - streamStartTime) / 60000)
         : 0;
 
-      res.json({
+      res.status(200).set('Content-Type', 'application/json').json({
         streaming: !!darkIceProcess,
         casting: !!mkChromecastProcess,
         icecast: true,
@@ -363,9 +371,13 @@ name            = PiCastStream
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    // Final catch-all for anything NOT starting with /api
+  app.get("*", (req, res) => {
+    if (req.url.startsWith('/api')) {
+      return res.status(404).json({ error: "API route not found" });
+    }
+    res.sendFile(path.join(distPath, "index.html"));
+  });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

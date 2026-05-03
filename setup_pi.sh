@@ -40,21 +40,20 @@ fi
 PROJECT_NAME="7B-Records"
 REPO_URL="https://github.com/bsax94/7B-Records.git"
 
-# Check if we are inside the project folder already
 if [[ "$PWD" == *"$PROJECT_NAME"* ]]; then
-    PROJECT_DIR=$(pwd)
+    echo "📍 Already in project directory."
+    git pull || echo "⚠️  Could not pull latest changes."
 else
-    # If not, check if it exists in the current directory
     if [ -d "$PROJECT_NAME" ]; then
         cd "$PROJECT_NAME"
-        PROJECT_DIR=$(pwd)
+        git pull || echo "⚠️  Could not pull latest changes."
     else
         echo "📂 Cloning repository..."
-        git clone $REPO_URL
+        git clone "$REPO_URL"
         cd "$PROJECT_NAME"
-        PROJECT_DIR=$(pwd)
     fi
 fi
+PROJECT_DIR=$(pwd)
 
 # Specialized setup for Streaming Services (Icecast2 & DarkIce)
 # Now that we are in the repo, the script is available
@@ -110,9 +109,9 @@ gio set $DESKTOP_FILE metadata::trusted true 2>/dev/null || true
 
 echo "✅ Setup Complete!"
 echo "-------------------------------------------------------"
-echo "1. A '7B Records' icon has been created on your Desktop."
-echo "2. Double-click the icon to start the server and interface."
-echo "3. The app is optimized for your 800x480 screen."
-echo "4. If the UI still gives 'Not a JSON response' errors,"
-echo "   run: git pull && ./update.sh"
+echo "1. Project Directory: $(pwd)"
+echo "2. A '7B Records' icon has been created on your Desktop."
+echo "3. Double-click the icon to start the server."
+echo "4. Or manually start: npm start"
+echo "5. Interface: http://localhost:3000"
 echo "-------------------------------------------------------"
