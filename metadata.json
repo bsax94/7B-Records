@@ -1,0 +1,6 @@
+{
+  "name": "7B Records",
+  "description": "Synthwave-styled record player broadcast controller for Raspberry Pi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
