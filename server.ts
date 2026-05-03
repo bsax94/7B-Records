@@ -151,9 +151,10 @@ async function startServer() {
         for (const line of lines) {
           if (line.startsWith("=") && line.includes("_googlecast._tcp")) {
             const parts = line.split(";");
-            if (parts.length > 3) {
+            if (parts.length > 7) {
               const name = parts[3].replace(/\\/g, "");
-              devices.push(name);
+              const ip = parts[7];
+              devices.push(`${name} [${ip}]`);
             }
           }
         }
@@ -308,8 +309,17 @@ name            = PiCastStream
              
              const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
              addLog(`mkchromecast bug detected! Switching to 'catt' backup...`);
+             
+             // Try to extract IP from name if it exists (e.g. "Name [192.168.1.5]")
+             let castTarget = chromecast;
+             const ipMatch = chromecast.match(/\[(.*?)\]/);
+             if (ipMatch && ipMatch[1]) {
+                 castTarget = ipMatch[1];
+                 addLog(`Extracted IP ${castTarget} for catt target`);
+             }
+
              try {
-               mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
+               mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
                if (mkChromecastProcess && mkChromecastProcess.pid) {
                  addLog(`Successfully spawned backup 'catt' (PID: ${mkChromecastProcess.pid})`);
                } else {

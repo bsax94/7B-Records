@@ -244,6 +244,7 @@ export default function App() {
           </div>
           <div className="h-4 w-px bg-[var(--border)] mx-1" />
           <button 
+            type="button"
             onClick={toggleFullscreen}
             className="p-1.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)]"
           >
@@ -368,7 +369,7 @@ export default function App() {
               >
                 <option value="">{loading.casting ? 'Searching for devices...' : 'Select receiver'}</option>
                 {chromecasts.map(c => (
-                  <option key={c} value={c}>{c.substring(0, 18)}</option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
@@ -382,6 +383,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-3">
               <button 
+                type="button"
                 onClick={() => setIsMuted(!isMuted)}
                 className={`p-1.5 rounded transition-colors ${isMuted ? 'bg-red-500/20 text-red-500' : 'text-pink-500 hover:bg-pink-500/10'}`}
               >
@@ -400,6 +402,7 @@ export default function App() {
 
           <footer className="mt-auto space-y-2">
             <button 
+              type="button"
               onClick={toggleStream}
               disabled={loading.action}
               className={`w-full py-2.5 rounded font-black text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 group ${
@@ -418,6 +421,7 @@ export default function App() {
             </button>
             <div className="flex gap-2">
               <button 
+                type="button"
                 onClick={() => setShowLogs(!showLogs)}
                 className="flex-grow py-2 bg-[var(--panel)] border border-[var(--border)] rounded text-[9px] font-bold text-[var(--ink-secondary)] flex items-center justify-center gap-1.5 hover:bg-white/5"
               >
@@ -495,7 +499,7 @@ export default function App() {
                     >
                       Download Full Log File
                     </a>
-                    <button onClick={() => setShowLogs(false)} className="text-[9px] font-bold text-pink-500 hover:text-white transition-colors">CLOSE</button>
+                    <button type="button" onClick={() => setShowLogs(false)} className="text-[9px] font-bold text-pink-500 hover:text-white transition-colors">CLOSE</button>
                   </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 font-mono text-[9px] space-y-1">
@@ -588,7 +592,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.9</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.0</div>
         </div>
       </motion.div>
 
