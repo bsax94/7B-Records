@@ -10,8 +10,8 @@ sudo apt update
 sudo apt install -y icecast2 darkice mkchromecast nodejs npm chromium-browser || sudo apt install -y chromium
 
 # 2. Setup the project folder
-PROJECT_NAME="7B_records"
-REPO_URL="https://github.com/starlandmusic/7B_records.git"
+PROJECT_NAME="7B-Records"
+REPO_URL="https://github.com/bsax94/7B-Records.git"
 
 # Check if we are inside the project folder already
 if [[ "$PWD" == *"$PROJECT_NAME"* ]]; then

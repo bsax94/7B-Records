@@ -7,7 +7,7 @@ A professional web dashboard for Raspberry Pi that enables streaming audio from 
 Run this single command in your terminal to install everything, build the app, and create a Desktop icon:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/starlandmusic/7B_records/main/setup_pi.sh | bash
+curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh | bash
 ```
 
 *This script will:*
