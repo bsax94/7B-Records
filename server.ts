@@ -186,6 +186,7 @@ async function startServer() {
       try {
         await execAsync("pkill -9 darkice || true");
         await execAsync("pkill -9 mkchromecast || true");
+        await execAsync("pkill -9 catt || true");
       } catch (e) {}
 
       // Verify Icecast is running or try to start it
@@ -200,8 +201,8 @@ async function startServer() {
         addLog("Could not verify Icecast status. Continuing anyway...");
       }
 
-      const config = `
-[general]
+      // IMPORTANT: config string must have NO leading spaces for DarkIce sections [header]
+      const config = `[general]
 duration        = 0
 bufferSecs      = 2
 reconnect       = yes
@@ -223,7 +224,7 @@ mountPoint      = stream.mp3
 name            = PiCastStream
 `;
       await fs.writeFile("darkice.cfg", config);
-      addLog("Generated darkice.cfg");
+      addLog("Generated darkice.cfg (Fixed formatting)");
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
       
@@ -242,11 +243,23 @@ name            = PiCastStream
         proc.on('exit', (code) => {
           addLog(`${name} process exited with code ${code}`);
           if (name === 'DarkIce') darkIceProcess = null;
-          if (name === 'Cast') mkChromecastProcess = null;
+          if (name === 'Cast' || name === 'Catt') mkChromecastProcess = null;
         });
 
         proc.stdout?.on('data', (data) => addLog(`${name}: ${data}`));
-        proc.stderr?.on('data', (data) => addLog(`${name} Stderr: ${data}`));
+        proc.stderr?.on('data', (data) => {
+          const logMsg = data.toString();
+          addLog(`${name} Stderr: ${logMsg}`);
+          
+          // Monitor for the mkchromecast bug
+          if (name === 'Cast' && logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'")) {
+             addLog("mkchromecast bug detected! Switching to 'catt' backup...");
+             if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
+             
+             const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
+             mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
+          }
+        });
         
         return proc;
       };
@@ -258,11 +271,11 @@ name            = PiCastStream
       const waitForStream = async (retries = 10): Promise<boolean> => {
         for (let i = 0; i < retries; i++) {
           try {
-            const { stdout } = await execAsync(`curl -I http://localhost:8000/stream.mp3 | grep "200 OK" || true`);
-            if (stdout.includes("200 OK")) return true;
+            const { stdout } = await execAsync(`curl -I http://localhost:8000/stream.mp3 2>/dev/null | grep "200" || true`);
+            if (stdout.includes("200")) return true;
           } catch (e) {}
           await new Promise(r => setTimeout(r, 1500));
-          addLog(`Waiting for stream to buffer... (${i + 1}/${retries})`);
+          if (i % 2 === 0) addLog(`Waiting for stream to buffer... (${i + 1}/${retries})`);
         }
         return false;
       };
@@ -275,12 +288,13 @@ name            = PiCastStream
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
         } else if (!isLive) {
-          addLog("WARNING: Stream did not go live in time, but process is running. Attempting cast anyway...");
+          addLog("WARNING: Stream did not go live. Please verify Icecast password.");
         }
 
         const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
         addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
         
+        // Try mkchromecast first
         mkChromecastProcess = spawnProcess("mkchromecast", [
           "--name", chromecast,
           "--source-url", streamUrl,
