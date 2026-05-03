@@ -446,7 +446,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
       {/* Tone Arm / Needle (Cyberpunk Styled) */}
       <motion.div
         initial={{ rotate: -45 }}
-        animate={active ? { rotate: 20 } : { rotate: -45 }}
+        animate={active ? { rotate: 28 } : { rotate: -45 }}
         transition={{ type: "spring", stiffness: 35, damping: 12 }}
         className="absolute top-[-30px] right-[-30px] w-12 h-[320px] origin-top-right z-30 pointer-events-none"
       >
