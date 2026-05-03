@@ -26,8 +26,10 @@ cd "$ROOT"
 echo "📍 Working in: $ROOT"
 
 echo "📥 [2/4] Pulling latest updates from GitHub..."
-# Try to pull, but don't exit if it fails (e.g. no internet or local changes)
+# Fix permissions before pulling if possible, but definitely after
+chmod +x *.sh || true
 git pull origin main || git pull || echo "⚠️  Git pull failed. You may need to manually resolve conflicts."
+chmod +x *.sh || true
 
 echo "📦 [3/4] refreshing dependencies..."
 # Ensure pip3 is available

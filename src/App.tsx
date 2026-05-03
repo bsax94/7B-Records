@@ -38,6 +38,7 @@ interface Device {
 interface Status {
   streaming: boolean;
   casting: boolean;
+  castStatus?: 'idle' | 'connecting' | 'connected' | 'error';
   icecast: boolean;
   mock?: boolean;
   uptimeMinutes?: number;
@@ -232,6 +233,12 @@ export default function App() {
           <div className="flex gap-2">
             <StatusIndicator label="ICE" active={status.icecast} color="cyan" />
             <StatusIndicator label="ENC" active={status.streaming} color="pink" />
+            <StatusIndicator 
+              label="CAST" 
+              active={status.casting} 
+              color={status.castStatus === 'error' ? 'pink' : status.castStatus === 'connecting' ? 'cyan' : 'cyan'} 
+              pulse={status.castStatus === 'connecting'}
+            />
           </div>
           <div className="h-4 w-px bg-[var(--border)] mx-1" />
           <button 
@@ -251,7 +258,10 @@ export default function App() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Input Deck</label>
-                {loading.devices && <RefreshCw className="w-2.5 h-2.5 animate-spin text-pink-400/70" />}
+                <div className="flex items-center gap-2">
+                  {loading.devices && <RefreshCw className="w-2.5 h-2.5 animate-spin text-pink-400/70" />}
+                  <div className={`w-1 h-1 rounded-full ${loading.devices ? 'bg-pink-500 animate-pulse' : 'bg-transparent'}`} />
+                </div>
               </div>
               
               {/* Hardware Warning Alert */}
@@ -311,13 +321,25 @@ export default function App() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-[9px] font-bold text-pink-400 uppercase tracking-tighter">Target Receiver</label>
-                <button 
-                  onClick={fetchChromecasts}
-                  disabled={loading.casting}
-                  className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
-                >
-                  <RefreshCw className={`w-2 h-2 ${loading.casting ? 'animate-spin' : ''}`} /> {loading.casting ? 'Scanning...' : 'Refresh'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {status.casting && (
+                    <span className={`text-[8px] font-bold tracking-tighter ${
+                      status.castStatus === 'connected' ? 'text-green-400' : 
+                      status.castStatus === 'connecting' ? 'text-cyan-400 animate-pulse' : 
+                      status.castStatus === 'error' ? 'text-red-400' : 'text-white/40'
+                    }`}>
+                      {status.castStatus?.toUpperCase() || 'OFFLINE'}
+                    </span>
+                  )}
+                  {loading.casting && <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-400/70" />}
+                  <button 
+                    onClick={fetchChromecasts}
+                    disabled={loading.casting}
+                    className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
+                  >
+                    <RefreshCw className={`w-2 h-2 ${loading.casting ? 'animate-spin' : ''}`} /> {loading.casting ? 'Scanning...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
               <select 
                 value={config.chromecast}
@@ -368,10 +390,12 @@ export default function App() {
               className={`w-full py-2.5 rounded font-black text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 group ${
                 status.streaming 
                   ? 'bg-transparent border border-red-500 text-red-500 hover:bg-red-500 hover:text-white' 
-                  : 'bg-pink-600 border border-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)] hover:shadow-[0_0_25px_rgba(236,72,153,0.6)] hover:scale-[1.02]'
-              }`}
+                  : (loading.action ? 'bg-pink-800' : 'bg-pink-600') + ' border border-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)] hover:shadow-[0_0_25px_rgba(236,72,153,0.6)] hover:scale-[1.02]'
+              } ${loading.action ? 'opacity-80 cursor-wait' : ''}`}
             >
-              {status.streaming ? (
+              {loading.action ? (
+                <><RefreshCw className="w-4 h-4 animate-spin" /> {status.streaming ? 'STOPPING...' : 'STARTING...'}</>
+              ) : status.streaming ? (
                 <><Square className="w-4 h-4 fill-current" /> STOP SESSION</>
               ) : (
                 <><Play className="w-4 h-4 fill-current" /> GO LIVE</>
@@ -573,11 +597,11 @@ function CircularVisualizer({ active }: { active: boolean }) {
   );
 }
 
-function StatusIndicator({ label, active, color = 'pink' }: { label: string, active: boolean, color?: 'pink' | 'cyan' }) {
+function StatusIndicator({ label, active, color = 'pink', pulse = false }: { label: string, active: boolean, color?: 'pink' | 'cyan', pulse?: boolean }) {
   const activeColor = color === 'pink' ? 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)]' : 'bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]';
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 bg-black/40 rounded-md border border-white/10">
-      <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${active ? activeColor : 'bg-white/10'}`} />
+      <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${active ? activeColor : 'bg-white/10'} ${pulse ? 'animate-pulse' : ''}`} />
       <span className={`text-[8px] font-black tracking-widest ${active ? 'text-white' : 'text-white/20'}`}>
         {label}
       </span>

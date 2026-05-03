@@ -4,6 +4,7 @@ import path from "path";
 import { exec, spawn, ChildProcess } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import os from "os";
 
 const execAsync = promisify(exec);
@@ -43,6 +44,7 @@ async function startServer() {
   let mkChromecastProcess: ChildProcess | any = null;
   let streamStartTime: number | null = null;
   let mockMode = false;
+  let castStatus: 'idle' | 'connecting' | 'connected' | 'error' = 'idle';
   let logs: string[] = ["7B Records Server Started", `Server IP: ${LOCAL_IP}`, "Waiting for audio sources..."];
 
   const addLog = async (msg: string) => {
@@ -51,6 +53,15 @@ async function startServer() {
     logs.push(formattedMsg);
     if (logs.length > 500) logs.shift();
     console.log(`[LOG] ${msg}`);
+    
+    // Auto-detect cast status from logs
+    if (msg.includes("Casting...") || msg.includes("Playing...") || msg.includes("audio is being casted")) {
+      castStatus = 'connected';
+    } else if (msg.includes("Attempting to cast") || msg.includes("Waiting for stream")) {
+      castStatus = 'connecting';
+    } else if (msg.includes("Error") || msg.includes("failed") || msg.includes("bug detected")) {
+      castStatus = 'error';
+    }
     
     try {
       await fs.appendFile(LOG_FILE, formattedMsg + "\n");
@@ -83,6 +94,7 @@ async function startServer() {
       res.status(200).set('Content-Type', 'application/json').json({
         streaming: !!darkIceProcess,
         casting: !!mkChromecastProcess,
+        castStatus,
         icecast: true,
         mock: mockMode,
         uptimeMinutes,
@@ -239,7 +251,7 @@ name            = PiCastStream
         let finalCmd = cmd;
         if (cmd === "catt") {
           const homeLocalBin = path.join(process.env.HOME || '', '.local/bin/catt');
-          if (fs.existsSync(homeLocalBin)) {
+          if (existsSync(homeLocalBin)) {
             finalCmd = homeLocalBin;
           }
         }
@@ -358,6 +370,7 @@ name            = PiCastStream
     }
     streamStartTime = null;
     mockMode = false;
+    castStatus = 'idle';
     res.json({ success: true });
   });
 
