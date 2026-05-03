@@ -284,7 +284,7 @@ export default function App() {
                   
                   if (selectedDevice?.type === 'mock') {
                     showToast(`Mode: Testing with Mock Audio`, 'info');
-                  } else {
+                  } else if (deviceId) {
                     showToast(`Input linked: ${deviceName.substring(0, 15)}...`);
                   }
                 }}
@@ -295,7 +295,7 @@ export default function App() {
                     : 'border-[var(--border)] focus:border-pink-500 focus:ring-pink-500/30'
                 }`}
               >
-                {loading.devices && <option disabled>Scanning devices...</option>}
+                <option value="">{loading.devices ? 'Scanning devices...' : 'Select input device'}</option>
                 {!loading.devices && devices.length === 0 && <option disabled>No devices found</option>}
                 {devices.map(d => (
                   <option key={d.id} value={d.id}>{d.name.substring(0, 18)}</option>
@@ -351,7 +351,7 @@ export default function App() {
                 disabled={loading.casting}
                 className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50"
               >
-                <option value="">{loading.casting ? 'Searching for devices...' : 'Select receiver...'}</option>
+                <option value="">{loading.casting ? 'Searching for devices...' : 'Select receiver'}</option>
                 {chromecasts.map(c => (
                   <option key={c} value={c}>{c.substring(0, 18)}</option>
                 ))}
@@ -564,11 +564,16 @@ function CircularVisualizer({ active }: { active: boolean }) {
             />
           )}
           
-          <div className="w-4 h-4 bg-black rounded-full mb-1 relative z-10 border border-white/20" />
-          <div className="text-[9px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic">
-            7B <br/> RECORDS
+          {/* True Center Hole */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-black rounded-full z-20 border border-white/20" />
+          
+          <div className="text-[10px] font-black text-white px-2 text-center leading-none uppercase tracking-widest relative z-10 italic -translate-y-[26px]">
+            7B
           </div>
-          <div className="text-[7px] font-black text-cyan-300 mt-1 uppercase tracking-widest relative z-10">CORE_V2.5</div>
+          <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[22px]">
+            RECORDS
+          </div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V0.2</div>
         </div>
       </motion.div>
 

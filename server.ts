@@ -299,7 +299,11 @@ name            = PiCastStream
           checkAuthError(logMsg);
           
           // Monitor for the mkchromecast bug
-          if (name === 'Cast' && logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'")) {
+          if (name === 'Cast' && (
+            logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'") ||
+            logMsg.includes("AttributeError: module 'pychromecast' has no attribute 'get_chromecast'") ||
+            logMsg.includes("AttributeError: module 'pychromecast.error' has no attribute 'NoChromecastFoundError'")
+          )) {
              if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
              
              const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
