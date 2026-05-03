@@ -342,7 +342,8 @@ export default function App() {
                   )}
                   {loading.casting && <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-400/70" />}
                   <button 
-                    onClick={fetchChromecasts}
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); fetchChromecasts(); }}
                     disabled={loading.casting}
                     className="text-[8px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors uppercase flex items-center gap-1 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"
                   >
@@ -403,7 +404,7 @@ export default function App() {
           <footer className="mt-auto space-y-2">
             <button 
               type="button"
-              onClick={toggleStream}
+              onClick={(e) => { e.preventDefault(); toggleStream(); }}
               disabled={loading.action}
               className={`w-full py-2.5 rounded font-black text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 group ${
                 status.streaming 
@@ -592,7 +593,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.0</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.2</div>
         </div>
       </motion.div>
 

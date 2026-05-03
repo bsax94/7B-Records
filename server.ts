@@ -47,12 +47,15 @@ async function startServer() {
   let castStatus: 'idle' | 'connecting' | 'connected' | 'error' = 'idle';
   let logs: string[] = ["7B Records Server Started", `Server IP: ${LOCAL_IP}`, "Waiting for audio sources..."];
 
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
   const addLog = async (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const formattedMsg = `[${timestamp}] ${msg}`;
     logs.push(formattedMsg);
     if (logs.length > 500) logs.shift();
-    console.log(`[LOG] ${msg}`);
+    originalConsoleLog(`[LOG] ${msg}`);
     
     // Auto-detect cast status from logs
     if (msg.includes("Casting...") || msg.includes("Playing...") || msg.includes("audio is being casted")) {
@@ -70,10 +73,25 @@ async function startServer() {
     }
   };
 
+  // Override console methods to capture everything
+  console.log = (...args) => {
+    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(" ");
+    if (!msg.startsWith("[LOG]")) { // Prevent loops
+      addLog(msg);
+    } else {
+      originalConsoleLog(...args);
+    }
+  };
+
+  console.error = (...args) => {
+    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(" ");
+    addLog(`ERROR: ${msg}`);
+  };
+
   // Request logger (MOVED TO TOP OF MIDDLEWARE)
   app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
-      console.log(`[API CALL] ${req.method} ${req.url}`);
+      originalConsoleLog(`[API CALL] ${req.method} ${req.url}`);
     }
     next();
   });
@@ -154,7 +172,15 @@ async function startServer() {
             if (parts.length > 7) {
               const name = parts[3].replace(/\\/g, "");
               const ip = parts[7];
-              devices.push(`${name} [${ip}]`);
+              // Prioritize IPv4 if we can find it in the parts
+              let bestIp = ip;
+              for (const p of parts) {
+                if (p.includes('.') && p.split('.').length === 4) {
+                  bestIp = p;
+                  break;
+                }
+              }
+              devices.push(`${name} [${bestIp}]`);
             }
           }
         }
@@ -404,12 +430,6 @@ name            = PiCastStream
 
   // Mount API Router
   app.use("/api", apiRouter);
-
-  // Request logger
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

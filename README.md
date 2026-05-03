@@ -28,10 +28,11 @@ chmod +x update.sh && ./update.sh
 ```
 
 ### If you aren't sure where the folder is:
+Run this command to find the script:
 ```bash
 find ~ -name "update.sh" 2>/dev/null
 ```
-*Note: If your path has spaces (like `Stream App`), be sure to wrap the command in quotes:*
+Then run the output path inside quotes. For example:
 ```bash
 "/home/starlandmusic/Stream App/7B-Records/update.sh"
 ```
