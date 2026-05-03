@@ -41,7 +41,9 @@ Then restart your server (or use the Desktop icon).
 1. **Network**: Ensure the Pi and the Speakers are on the **same Wi-Fi/LAN**.
 2. **Logs**: If casting fails, click the **Terminal** icon in the app. You can click **"Download Full Log File"** to save a detailed report.
 3. **Log Location**: The log file is stored on the Pi at: `~/7B_records/app.log`.
-4. **Firewall**: Ensure the following ports are open: **UDP 5353**, **TCP 8000**, **TCP 8008-8010**.
+4. **Connector Error / DarkIce Exit**: If you see "Connector" errors in the logs, try changing the **Icecast Password** in settings from `raspberry` to `hackme`.
+5. **Casting Issues**: If the app fails to cast, make sure `catt` is installed: `sudo apt install catt`.
+6. **Firewall**: Ensure the following ports are open: **UDP 5353**, **TCP 8000**, **TCP 8008-8010**.
 
 ## 🛠 Features
 

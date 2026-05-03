@@ -214,7 +214,7 @@ bitsPerSample   = 16
 channel         = 2
 
 [icecast2-0]
-bitrateMode     = abr
+bitrateMode     = cbr
 format          = mp3
 bitrate         = ${bitrate || 192}
 server          = localhost
@@ -246,10 +246,21 @@ name            = PiCastStream
           if (name === 'Cast' || name === 'Catt') mkChromecastProcess = null;
         });
 
-        proc.stdout?.on('data', (data) => addLog(`${name}: ${data}`));
+        proc.stdout?.on('data', (data) => {
+          const logMsg = data.toString();
+          addLog(`${name}: ${logMsg}`);
+          
+          if (name === 'DarkIce' && logMsg.includes("can't open connector [0]")) {
+             addLog("CRITICAL: DarkIce could not connect to Icecast. This usually means the Icecast PASSWORD is incorrect or Icecast is not running.");
+          }
+        });
         proc.stderr?.on('data', (data) => {
           const logMsg = data.toString();
           addLog(`${name} Stderr: ${logMsg}`);
+          
+          if (name === 'DarkIce' && logMsg.includes("can't open connector [0]")) {
+             addLog("CRITICAL: DarkIce authentication failure! Please check your Icecast password in settings.");
+          }
           
           // Monitor for the mkchromecast bug
           if (name === 'Cast' && logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'")) {
@@ -257,6 +268,7 @@ name            = PiCastStream
              if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
              
              const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
+             addLog(`mkchromecast bug detected! Switching to 'catt' backup for ${chromecast}...`);
              mkChromecastProcess = spawnProcess("catt", ["-d", chromecast, "cast", streamUrl], "Catt");
           }
         });

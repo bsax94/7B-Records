@@ -75,7 +75,7 @@ export default function App() {
   const [config, setConfig] = useState({
     device: '',
     chromecast: '',
-    password: 'raspberry',
+    password: 'hackme',
     bitrate: 192
   });
 
