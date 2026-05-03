@@ -103,11 +103,16 @@ export default function App() {
   const fetchStatus = async () => {
     try {
       const res = await fetch('/api/status');
-      if (!res.ok) throw new Error(`Status HTTP error! status: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.error("Status check failed: 404 Not Found at /api/status. Check server routes.");
+        }
+        throw new Error(`Status HTTP error! status: ${res.status}`);
+      }
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Status: Not a JSON response. Received:", text.substring(0, 100));
+        console.error("Status: Not a JSON response. Ensure you've pulled latest server changes. Received:", text.substring(0, 100));
         throw new TypeError("Status: Not a JSON response");
       }
       const data = await res.json();
@@ -129,7 +134,7 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Logs: Not a JSON response. Received:", text.substring(0, 100));
+        console.error("Logs: Not a JSON response. Ensure you've pulled latest server changes. Received:", text.substring(0, 100));
         throw new TypeError("Logs: Not a JSON response");
       }
       const data = await res.json();
@@ -390,7 +395,17 @@ export default function App() {
                     <Terminal className="w-3 h-3 text-pink-500" />
                     <span className="text-[9px] font-black tracking-widest text-white uppercase">System Debug Console</span>
                   </div>
-                  <button onClick={() => setShowLogs(false)} className="text-[9px] font-bold text-pink-500 hover:text-white transition-colors">CLOSE</button>
+                  <div className="flex gap-4 items-center">
+                    <a 
+                      href="/api/logs/download" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] font-black tracking-widest text-cyan-400 hover:text-white transition-colors uppercase border border-cyan-400/20 px-2 py-1 rounded bg-cyan-400/5"
+                    >
+                      Download Full Log File
+                    </a>
+                    <button onClick={() => setShowLogs(false)} className="text-[9px] font-bold text-pink-500 hover:text-white transition-colors">CLOSE</button>
+                  </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 font-mono text-[9px] space-y-1">
                   {logs.map((log, i) => (

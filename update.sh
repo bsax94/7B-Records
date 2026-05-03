@@ -5,23 +5,29 @@
 set -e # Exit on error
 
 echo "🔄 [1/4] Detecting project environment..."
-# Detect if we should use full path or local path
-if [ -d "$HOME/7B_records" ]; then
+# Find the project root by looking for package.json in typical locations
+if [ -f "package.json" ]; then
+    ROOT=$(pwd)
+elif [ -d "$HOME/7B_records" ]; then
     ROOT="$HOME/7B_records"
 elif [ -d "$HOME/7B-Records" ]; then
     ROOT="$HOME/7B-Records"
-elif [ -f "package.json" ]; then
-    ROOT=$(pwd)
 else
-    echo "❌ Error: Could not find project root."
-    exit 1
+    # Try one last check in the current folder's parent
+    if [ -f "../package.json" ]; then
+        ROOT=$(cd .. && pwd)
+    else
+        echo "❌ Error: Could not find project root (package.json). Please run this from inside the 7B Records folder."
+        exit 1
+    fi
 fi
 
 cd "$ROOT"
 echo "📍 Working in: $ROOT"
 
 echo "📥 [2/4] Pulling latest updates from GitHub..."
-git pull origin main || echo "⚠️  Git pull failed. You may have local changes. Continuing anyway..."
+# Try to pull, but don't exit if it fails (e.g. no internet or local changes)
+git pull origin main || git pull || echo "⚠️  Git pull failed. You may need to manually resolve conflicts."
 
 echo "📦 [3/4] refreshing dependencies..."
 npm install

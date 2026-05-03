@@ -28,6 +28,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
   const LOCAL_IP = getLocalIp();
+  const LOG_FILE = path.join(process.cwd(), "app.log");
+
+  // Initialize log file
+  try {
+    await fs.writeFile(LOG_FILE, `--- 7B Records Server Start: ${new Date().toISOString()} ---\n`);
+  } catch (err) {
+    console.error("Failed to initialize log file:", err);
+  }
 
   app.use(express.json());
 
@@ -43,19 +51,28 @@ async function startServer() {
   let mockMode = false;
   let logs: string[] = ["7B Records Server Started", `Server IP: ${LOCAL_IP}`, "Waiting for audio sources..."];
 
-  const addLog = (msg: string) => {
+  const addLog = async (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    logs.push(`[${timestamp}] ${msg}`);
-    if (logs.length > 200) logs.shift();
+    const formattedMsg = `[${timestamp}] ${msg}`;
+    logs.push(formattedMsg);
+    if (logs.length > 500) logs.shift();
     console.log(`[LOG] ${msg}`);
+    
+    try {
+      await fs.appendFile(LOG_FILE, formattedMsg + "\n");
+    } catch (err) {
+      // Ignore file write errors
+    }
   };
 
   // API Routes
-  app.get("/api/health", (req, res) => {
+  const apiRouter = express.Router();
+
+  apiRouter.get("/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
-  app.get("/api/status", (req, res) => {
+  apiRouter.get("/status", (req, res) => {
     try {
       const uptimeMinutes = streamStartTime 
         ? Math.floor((Date.now() - streamStartTime) / 60000)
@@ -75,11 +92,15 @@ async function startServer() {
     }
   });
 
-  app.get("/api/logs", (req, res) => {
+  apiRouter.get("/logs", (req, res) => {
     res.json({ logs });
   });
 
-  app.get("/api/devices", async (req, res) => {
+  apiRouter.get("/logs/download", (req, res) => {
+    res.download(LOG_FILE, "7b-records-debug.log");
+  });
+
+  apiRouter.get("/devices", async (req, res) => {
     try {
       const { stdout } = await execAsync("arecord -l");
       const devices = stdout.split('\n')
@@ -99,7 +120,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/chromecasts", async (req, res) => {
+  apiRouter.get("/chromecasts", async (req, res) => {
     try {
       addLog("Scanning for Chromecasts (mDNS)...");
       
@@ -152,7 +173,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/stream/start", async (req, res) => {
+  apiRouter.post("/stream/start", async (req, res) => {
     const { device, chromecast, password, bitrate } = req.body;
 
     if (darkIceProcess || mkChromecastProcess) {
@@ -260,7 +281,7 @@ name            = PiCastStream
     }
   });
 
-  app.post("/api/stream/stop", (req, res) => {
+  apiRouter.post("/stream/stop", (req, res) => {
     if (darkIceProcess) {
       if (darkIceProcess.kill) darkIceProcess.kill();
       darkIceProcess = null;
@@ -275,6 +296,9 @@ name            = PiCastStream
     mockMode = false;
     res.json({ success: true });
   });
+
+  // Mount API Router
+  app.use("/api", apiRouter);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

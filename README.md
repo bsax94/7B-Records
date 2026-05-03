@@ -18,26 +18,30 @@ curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh |
 5. Build the production application.
 6. **Create a "7B Records" icon on your Desktop.**
 
-## 🔄 Updating
-If you are updating for the first time, you must manually sync the new files:
+## 🔄 Updating & Fixing Errors
+If you see **"Not a JSON response"** or **"0 chromecast devices"**, you need to sync the latest system files.
+
+### Option A: The Automatic Way (Recommended)
+If you have `update.sh` in your folder:
 ```bash
-cd ~/7B_records && git pull && chmod +x update.sh && ./update.sh
+cd ~/7B_records || cd ~/7B-Records
+chmod +x update.sh && ./update.sh
 ```
 
-For all future updates, simply run:
+### Option B: The Manual Way (If update.sh is missing)
+Run these commands in your project folder:
 ```bash
-./update.sh
+git pull origin main
+npm install
+npm run build
 ```
+Then restart your server (or use the Desktop icon).
 
 ## 📡 Networking & Troubleshooting
-If you cannot find your Chromecast devices:
 1. **Network**: Ensure the Pi and the Speakers are on the **same Wi-Fi/LAN**.
-2. **AP Isolation**: Check your router settings. "AP Isolation" or "Client Isolation" must be **OFF**.
-3. **mDNS**: This app uses Avahi for discovery. Ensure it's running: `sudo systemctl status avahi-daemon`.
-4. **Firewall**: Ensure the following ports are open on your network:
-   - **UDP 5353** (Discovery)
-   - **TCP 8000** (Stream)
-   - **TCP 8008-8010** (Cast Control)
+2. **Logs**: If casting fails, click the **Terminal** icon in the app. You can click **"Download Full Log File"** to save a detailed report.
+3. **Log Location**: The log file is stored on the Pi at: `~/7B_records/app.log`.
+4. **Firewall**: Ensure the following ports are open: **UDP 5353**, **TCP 8000**, **TCP 8008-8010**.
 
 ## 🛠 Features
 
