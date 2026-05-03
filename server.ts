@@ -93,36 +93,46 @@ async function startServer() {
 
   app.get("/api/chromecasts", async (req, res) => {
     try {
-      addLog("Scanning for Chromecasts...");
+      addLog("Scanning for Chromecasts (mDNS)...");
       
-      // mkchromecast -l often exits with 1 if no devices are found 
-      // within its narrow timeout, but still outputs scanned names to stdout/stderr.
-      const execResult = await execAsync("mkchromecast -l", { timeout: 15000 })
-        .catch(err => {
-          // If it fails (non-zero exit), we still check the captured output
-          return { stdout: err.stdout || "", stderr: err.stderr || "" };
-        });
+      let devices: string[] = [];
 
-      const output = (execResult.stdout || "") + "\n" + (execResult.stderr || "");
-      
-      // Improved parsing: search for 'Name: <device_name>'
-      // mkchromecast output usually looks like: [I] Name: Living Room Speaker
-      const devices = output.split('\n')
-        .filter(line => line.toLowerCase().includes('name:'))
-        .map(line => {
-          const parts = line.split(/[Nn]ame:/);
-          return parts.length > 1 ? parts[1].trim() : null;
-        })
-        .filter((name): name is string => name !== null && name.length > 0);
+      // 1. Try avahi-browse (native linux mDNS)
+      try {
+        const { stdout } = await execAsync("avahi-browse -rt _googlecast._tcp --parsable", { timeout: 5000 });
+        const lines = stdout.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("=") && line.includes("_googlecast._tcp")) {
+            const parts = line.split(";");
+            if (parts.length > 3) {
+              const name = parts[3].replace(/\\/g, "");
+              devices.push(name);
+            }
+          }
+        }
+      } catch (avahiError) {
+        // Fallback or ignore
+      }
+
+      // 2. If avahi returned nothing or failed, try mkchromecast as fallback
+      if (devices.length === 0) {
+        const execResult = await execAsync("mkchromecast -l", { timeout: 10000 })
+          .catch(err => ({ stdout: err.stdout || "", stderr: err.stderr || "" }));
+
+        const output = (execResult.stdout || "") + "\n" + (execResult.stderr || "");
+        devices = output.split('\n')
+          .filter(line => line.toLowerCase().includes('name:'))
+          .map(line => {
+            const parts = line.split(/[Nn]ame:/);
+            return parts.length > 1 ? parts[1].trim() : null;
+          })
+          .filter((name): name is string => name !== null && name.length > 0);
+      }
       
       const uniqueDevices = Array.from(new Set(devices));
 
       if (uniqueDevices.length === 0) {
-        addLog(`Scan complete: 0 physical devices detected. Raw output length: ${output.length} characters.`);
-        if (output.length > 0) {
-          addLog(`System trace: ${output.substring(0, 100).replace(/\n/g, ' ')}...`);
-        }
-        // We provide a fallback for UI testing/visibility if nothing was found
+        addLog("Scan complete: 0 physical devices detected.");
         res.json(["Living Room Speaker (Demo)", "Kitchen Hub (Demo)"]);
       } else {
         addLog(`Scan complete: Found ${uniqueDevices.length} devices.`);
