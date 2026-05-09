@@ -225,8 +225,16 @@ async function startServer() {
         addLog("Scan complete: 0 physical devices detected.");
         res.json(["Living Room Speaker (Demo)", "Kitchen Hub (Demo)"]);
       } else {
-        addLog(`Scan complete: Found ${uniqueDevices.length} devices.`);
-        res.json(uniqueDevices);
+        // Filter out devices that only returned IPv6 if possible, or prioritize IPv4
+        const prioritized = uniqueDevices.sort((a, b) => {
+          const aHasIp4 = a.match(/\[(\d+\.\d+\.\d+\.\d+)\]/);
+          const bHasIp4 = b.match(/\[(\d+\.\d+\.\d+\.\d+)\]/);
+          if (aHasIp4 && !bHasIp4) return -1;
+          if (!aHasIp4 && bHasIp4) return 1;
+          return 0;
+        });
+        addLog(`Scan complete: Found ${prioritized.length} devices.`);
+        res.json(prioritized);
       }
     } catch (error) {
       addLog(`Discovery error (Fatal): ${error}`);
@@ -306,19 +314,27 @@ name            = 7B Records Live
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
 
-      // Pre-flight check for ALSA device
-      if (device.startsWith("hw:")) {
+      // STRICT PRE-FLIGHT HARDWARE CHECK
+      if (device !== "mock:1") {
         try {
           const { stdout: devices } = await execAsync("arecord -l");
-          const cardId = device.split(":")[1].split(",")[0];
-          if (!devices.includes(`card ${cardId}:`)) {
-            addLog(`CRITICAL ERROR: Audio card ${cardId} is not connected or recognized.`);
-            addLog("TIP: Check your USB connection and run 'arecord -l' in the terminal.");
-            throw new Error(`Device ${device} not found`);
+          const cardSearch = device.startsWith("hw:") ? `card ${device.split(":")[1].split(",")[0]}:` : device;
+          if (!devices.includes(cardSearch)) {
+            addLog(`[HARDWARE FAILURE] Device ${device} not recognized by ALSA.`);
+            addLog("TIP: Ensure your USB audio interface is plugged in and recognized in 'arecord -l'.");
+            return res.status(404).json({ 
+              success: false, 
+              error: "DEVICE_NOT_FOUND",
+              message: "Audio hardware not found. Please check connections." 
+            });
           }
         } catch (e) {
-          if (!mockMode) addLog(`Pre-flight Hardware Warning: ${e instanceof Error ? e.message : 'Unknown'}`);
+            addLog(`Error during hardware check: ${e}`);
+            return res.status(500).json({ error: "ALSA Check Failed" });
         }
+      } else {
+        addLog("[MODE] Starting in Simulation Mode (Backend Mocking Enabled)");
+        mockMode = true;
       }
       
       const spawnProcess = (cmd: string, args: string[], name: string) => {
@@ -496,18 +512,20 @@ name            = 7B Records Live
         const activeMount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
         const streamUrl = `http://${LOCAL_IP}:${streamSettings.icecastPort}${activeMount}`;
         
-        // IP Sanitization Logic
+        // Network Sanitizer: Prioritize IPv4 and handle IPv6 wrapping
         let castTarget = chromecast;
         const ipMatch = chromecast.match(/\[(.*?)\]/);
+        
         if (ipMatch && ipMatch[1]) {
             const rawIp = ipMatch[1];
-            // If it's IPv6 (contains colons), wrap it in brackets for catt
+            // If multiple IPs are present (rare) or we need to check type
             if (rawIp.includes(':')) {
+                // If it's IPv6, wrap it for catt
                 castTarget = `[${rawIp}]`;
-                addLog(`[SANITIZER] IPv6 Target detected: ${castTarget}`);
+                addLog(`[SANITIZER] Target uses IPv6: ${castTarget}`);
             } else {
                 castTarget = rawIp;
-                addLog(`[SANITIZER] IPv4 Target detected: ${castTarget}`);
+                addLog(`[SANITIZER] Target uses IPv4: ${castTarget}`);
             }
         }
 

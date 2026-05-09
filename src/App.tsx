@@ -357,11 +357,29 @@ export default function App() {
       if (status.streaming || status.casting) {
         await fetch('/api/stream/stop', { method: 'POST' });
       } else {
-        await fetch('/api/stream/start', {
+        const response = await fetch('/api/stream/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)
         });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+           if (data.error === "DEVICE_NOT_FOUND") {
+              setCriticalError({
+                 message: "USB Audio Device Not Found",
+                 tip: "Ensure your turntable is connected and recognized in settings."
+              });
+              
+              if (window.confirm("Hardware not detected. Would you like to enter Simulation Mode to test the UI?")) {
+                 setConfig(prev => ({ ...prev, device: "mock:1" }));
+                 showToast("Entering Simulation Mode...", "info");
+              }
+           } else {
+              showToast(data.error || "Failed to start stream", "error");
+           }
+        }
       }
       fetchStatus();
     } finally {

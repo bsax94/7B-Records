@@ -13,9 +13,15 @@ if [ ! -f "/etc/icecast2/icecast.xml" ]; then
     exit 1
 fi
 
-# 2. Check Permissions
+# 2. Check Permissions & Hardware
 if ! groups | grep -q "audio"; then
     echo "[WARNING] User not in audio group. DarkIce might fail."
+fi
+
+echo "[BOOT] Checking for USB Audio Devices..."
+if ! arecord -l | grep -q "card"; then
+    echo "[CRITICAL] No USB Audio Card detected! Please plug in your turntable."
+    # We continue so the dashboard can still be used for settings, but warn clearly
 fi
 
 # 3. Ensure Icecast is running
