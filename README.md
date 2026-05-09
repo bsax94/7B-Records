@@ -2,80 +2,70 @@
 
 A professional web dashboard for Raspberry Pi that enables streaming audio from a hardware input (like a record player or microphone) to Chromecast devices. Optimized for 800x480 touchscreens.
 
-## 🚀 One-Step Setup (Raspberry Pi)
+## 🚀 Installation (Raspberry Pi)
 
-Run this single command in your terminal to install everything, build the app, and create a Desktop icon:
+### Method 1: The One-Step Installer (Recommended)
+Run this single command in your terminal to install system dependencies, configure hardware, and create a Desktop icon:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/bsax94/7B-Records/main/setup_pi.sh | bash
 ```
 
-*This script will:*
-1. Install system dependencies (Icecast, DarkIce, Node.js, Chromium).
-2. Clone the repository (if not already present).
-3. Create standard config files (`package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`) if missing.
-4. Install Node.js dependencies.
-5. Build the production application.
-6. **Create a "7B Records" icon on your Desktop.**
+### Method 2: Manual Installation
+If you have already cloned the repository:
 
-## 🔄 Updating & Fixing Errors
-If you see **"Not a JSON response"** or **"0 chromecast devices"**, you need to sync the latest system files.
+1. **Run the System Installer**:
+   ```bash
+   sudo chmod +x install.sh
+   sudo ./install.sh "YOUR_SOURCE_PASS" "YOUR_ADMIN_PASS"
+   ```
+   *Tip: Use 'hackme' if you don't want to change default settings.*
 
-### The Easy Way
-Navigate to your project folder and run:
+2. **Prepare the Application**:
+   ```bash
+   npm install
+   npm run build
+   ```
+
+## 🔄 Updating & Maintenance
+
+To update 7B Records to the latest version and fix common errors (like "Not a JSON response"), use the built-in update script:
+
 ```bash
-chmod +x update.sh && ./update.sh
+sudo chmod +x update.sh
+./update.sh
 ```
 
-### 📡 Automatic Installation
-The easiest way to get started is to run the master installer. This installs all hardware drivers, the Icecast server, and casting utilities.
+This will:
+* Pull the latest code changes.
+* Re-install and update Node.js dependencies.
+* Re-generate production build files.
+* Refresh the Desktop shortcut settings.
 
-```bash
-sudo chmod +x install.sh
-sudo ./install.sh "YOUR_SOURCE_PASS" "YOUR_ADMIN_PASS"
-```
+## 🎮 How to Launch
 
-Once finished:
-1. Open the **Expert Stream Settings** (Gear icon) in the Dashboard.
-2. Enter the passwords you used in the command above.
-3. Select your USB Turntable device (usually `hw:1,0`).
-4. Apply and Start Streaming.
+### Desktop shortcut
+Double-click the **7B Records** icon on your Pi Desktop. This launches the `7b-launcher.sh` script which:
+1. Verifies Icecast and DarkIce are ready.
+2. Restarts the system services.
+3. Automatically opens the dashboard in your browser.
 
-### If you aren't sure where the folder is:
-Run this command to find the script:
+### Terminal Launcher
 ```bash
-find ~ -name "update.sh" 2>/dev/null
+./scripts/7b-launcher.sh
 ```
-Then run the output path inside quotes. For example:
-```bash
-"/home/starlandmusic/Stream App/7B-Records/update.sh"
-```
-Then restart your server.
 
 ## 📡 Networking & Troubleshooting
-1. **Network**: Ensure the Pi and the Speakers are on the **same Wi-Fi/LAN**.
-2. **Logs**: If casting fails, click the **Terminal** icon in the app. You can click **"Download Full Log File"** to save a detailed report.
-3. **Log Location**: The log file is stored on the Pi at: `~/7B_records/app.log`.
-4. **Connector Error / DarkIce Exit**: If you see "Connector" errors in the logs, try changing the **Icecast Password** in settings from `raspberry` to `hackme`.
-5. **Casting Issues**: If the app fails to cast, make sure `catt` is installed: `sudo apt install catt`.
-6. **Firewall**: Ensure the following ports are open: **UDP 5353**, **TCP 8000**, **TCP 8008-8010**.
+
+1. **Local Network**: Ensure the Pi and the Chromecast device are on the **exact same Wi-Fi SSID**.
+2. **Audio Group**: If DarkIce fails to start, ensure your user is in the audio group: `sudo usermod -a -G audio $USER` and reboot.
+3. **Passwords**: Ensure the passwords in the Dashboard's **Expert Gear Settings** match the passwords used during `install.sh`. Default is `hackme`.
+4. **Logs**: Use the **Terminal** icon in the dashboard to view real-time logs. If a cast fails, it will automatically attempt a fallback to `catt`.
+5. **Firewall**: Open the following ports if necessary: **UDP 5353** (MDNS), **TCP 8000** (Icecast), **TCP 3000** (Dashboard).
 
 ## 🛠 Features
 
-*   **Cyberpunk UI**: Optimized for 800x480 Pi displays.
-*   **Real-time Visualizer**: Watch your record's audio in motion.
-*   **Chromecast Integration**: Seamlessly find and stream to your local speakers.
-*   **Low Latency**: Uses DarkIce + Icecast for stable broadcasting.
-
-## Usage
-
-1.  **Open the App**: Double-click the "7B Records" icon on your Raspberry Pi desktop.
-2.  **Input Selection**: Choose your USB Audio Interface from the list.
-3.  **Target Speaker**: Select your Chromecast device.
-4.  **Start Stream**: Hit the "Start Broadcast" button and drop the needle.
-
-## Troubleshooting
-
-*   **Icon not launching?** Right-click the icon and ensure "Mark as Executable" is checked.
-*   **No sound?** Ensure your USB sound card is set as the default recording device in AlsaMixer.
-*   **Chromecast missing?** Verify your Pi and Chromecast are on the same local network.
+*   **Cyberpunk Vibe**: Neon-drenched UI optimized for 7" Raspberry Pi displays.
+*   **Automatic Handshake**: DarkIce verifies connection to the Icecast bridge before attempting to cast.
+*   **Dual-Engine Casting**: Primarily uses `mkchromecast`, with an automatic intelligent fallback to `catt` if errors are detected.
+*   **System Integrity Check**: Launcher script ensures services are running before you start.
