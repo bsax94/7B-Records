@@ -27,7 +27,8 @@ import {
   MessageSquare,
   Clock,
   Eye,
-  EyeOff
+  EyeOff,
+  Tv
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -82,6 +83,8 @@ export default function App() {
   const [loading, setLoading] = useState({ devices: false, casting: false, action: false });
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success'} | null>(null);
   const [criticalError, setCriticalError] = useState<{message: string, tip: string} | null>(null);
+  const [showScreensaver, setShowScreensaver] = useState(false);
+  const inactiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [deviceFlash, setDeviceFlash] = useState(false);
   const [receiverFlash, setReceiverFlash] = useState(false);
   
@@ -132,6 +135,38 @@ export default function App() {
       clearInterval(logsInterval);
     };
   }, []);
+
+  const resetInactiveTimer = () => {
+    if (inactiveTimerRef.current) clearTimeout(inactiveTimerRef.current);
+    setShowScreensaver(false);
+    
+    // Only set timer if NOT streaming
+    if (!status.streaming) {
+      inactiveTimerRef.current = setTimeout(() => {
+        setShowScreensaver(true);
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+  };
+
+  useEffect(() => {
+    const handleInteraction = () => resetInactiveTimer();
+    window.addEventListener('mousemove', handleInteraction);
+    window.addEventListener('keydown', handleInteraction);
+    window.addEventListener('mousedown', handleInteraction);
+    window.addEventListener('touchstart', handleInteraction);
+    window.addEventListener('scroll', handleInteraction);
+
+    resetInactiveTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+      window.removeEventListener('mousedown', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('scroll', handleInteraction);
+      if (inactiveTimerRef.current) clearTimeout(inactiveTimerRef.current);
+    };
+  }, [status.streaming]);
 
   const fetchSettings = async () => {
     try {
@@ -326,6 +361,14 @@ export default function App() {
           >
             <MessageSquare className="w-2.5 h-2.5" />
             Share Logs
+          </button>
+          <button
+            onClick={() => setShowScreensaver(true)}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded border border-white/10 transition-all text-[8px] font-black uppercase tracking-widest mr-2"
+            title="Show Screensaver"
+          >
+            <Tv className="w-2.5 h-2.5" />
+            Sleep
           </button>
           <button 
             type="button"
@@ -561,7 +604,10 @@ export default function App() {
           </div>
 
           <div className="relative group">
-             <CircularVisualizer active={status.streaming} />
+             <CircularVisualizer 
+               spinning={status.streaming} 
+               armActive={status.casting ? status.castStatus === 'connected' : status.streaming} 
+             />
              
              {/* Dynamic Status Overlay */}
              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
@@ -830,16 +876,52 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Screensaver Overlay */}
+      <AnimatePresence>
+        {showScreensaver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2 }}
+            className="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center cursor-none pointer-events-auto"
+            onClick={() => setShowScreensaver(false)}
+          >
+             <motion.div
+               animate={{ 
+                 x: [10, -10, 10, -10, 10],
+                 y: [10, 10, -10, -10, 10],
+               }}
+               transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+               className="flex flex-col items-center gap-6"
+             >
+                <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-violet-600 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(236,72,153,0.3)] border border-white/20">
+                   <Radio className="text-white w-12 h-12" />
+                </div>
+                <div className="text-center space-y-2">
+                   <h2 className="text-2xl font-black italic tracking-[0.3em] text-white uppercase bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-cyan-500">7B RECORDS</h2>
+                   <div className="text-[10px] font-mono text-white/30 uppercase tracking-[0.5em]">SYSTEM STANDBY // IDLE MODE</div>
+                   <div className="pt-8 text-[40px] font-mono font-bold text-white/10 tracking-widest tabular-nums">
+                      {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                   </div>
+                </div>
+             </motion.div>
+             <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function CircularVisualizer({ active }: { active: boolean }) {
+function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armActive: boolean }) {
   return (
     <div className="relative w-[340px] h-[340px] flex items-center justify-center shrink-0 scale-90 sm:scale-100">
       {/* Vinyl Record Base */}
       <motion.div
-        animate={active ? { rotate: [0, 360] } : { rotate: 0 }}
+        animate={spinning ? { rotate: [0, 360] } : { rotate: 0 }}
         transition={{ 
           duration: 4, 
           repeat: Infinity, 
@@ -864,7 +946,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
         {/* Dynamic Inner Label */}
         <div className="relative w-[110px] h-[110px] rounded-full bg-gradient-to-br from-pink-600 to-violet-700 flex flex-col items-center justify-center shadow-inner border-[6px] border-black z-10 overflow-hidden">
           {/* Animated Pulse Pattern */}
-          {active && (
+          {spinning && (
             <motion.div
               animate={{ 
                 scale: [1, 1.2, 1],
@@ -884,14 +966,14 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.8</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.0</div>
         </div>
       </motion.div>
 
       {/* Tone Arm / Needle (Cyberpunk Styled) */}
       <motion.div
         initial={{ rotate: -45 }}
-        animate={active ? { rotate: 28 } : { rotate: -45 }}
+        animate={armActive ? { rotate: 28 } : { rotate: -45 }}
         transition={{ type: "spring", stiffness: 35, damping: 12 }}
         className="absolute top-[-30px] right-[-30px] w-12 h-[320px] origin-top-right z-30 pointer-events-none"
       >
