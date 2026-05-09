@@ -158,10 +158,23 @@ async function startServer() {
     try {
       const { stdout } = await execAsync("arecord -l");
       const hardwareDevices = stdout.split('\n')
-        .filter(line => line.includes('card'))
+        .filter(line => line.includes('card') && line.includes('device'))
         .map(line => {
-          const match = line.match(/card (\d+):.*device (\d+):/);
-          return match ? { id: `hw:${match[1]},${match[2]}`, name: line.trim(), type: 'hardware' } : null;
+          const match = line.match(/card (\d+): (.*?) \[(.*?)\], device (\d+): (.*?) \[(.*?)\]/);
+          if (match) {
+            const cardId = match[1];
+            const deviceId = match[4];
+            const cardName = match[3];
+            const deviceName = match[6];
+            return { 
+              id: `hw:${cardId},${deviceId}`, 
+              name: `${cardName} - ${deviceName} (hw:${cardId},${deviceId})`, 
+              type: 'hardware' 
+            };
+          }
+          // Fallback if regex fails but line has basic info
+          const basicMatch = line.match(/card (\d+):.*device (\d+):/);
+          return basicMatch ? { id: `hw:${basicMatch[1]},${basicMatch[2]}`, name: line.trim().substring(0, 40), type: 'hardware' } : null;
         })
         .filter(Boolean);
 
@@ -186,41 +199,82 @@ async function startServer() {
 
       // 1. Try avahi-browse (native linux mDNS)
       try {
-        const { stdout } = await execAsync("avahi-browse -rt _googlecast._tcp --parsable", { timeout: 5000 });
+        const { stdout } = await execAsync("avahi-browse -rt _googlecast._tcp --parsable", { timeout: 13000 });
         const lines = stdout.split("\n");
         for (const line of lines) {
           if (line.startsWith("=") && line.includes("_googlecast._tcp")) {
             const parts = line.split(";");
             if (parts.length > 7) {
-              const name = parts[3].replace(/\\/g, "");
+              let friendlyName = parts[3].replace(/\\/g, "");
               const ip = parts[7];
-              // Prioritize IPv4 strictly for casting stability
+              
+              if (parts.length > 9) {
+                const txt = parts[9];
+                const fnMatch = txt.match(/fn="?([^"]+)"?/);
+                if (fnMatch && fnMatch[1]) {
+                  friendlyName = fnMatch[1];
+                }
+              }
+
               const ipParts = parts.filter(p => p.includes('.') && p.split('.').length === 4);
               const bestIp = ipParts.length > 0 ? ipParts[0] : parts[7];
-              devices.push(`${name} [${bestIp}]`);
+              devices.push(`${friendlyName} [${bestIp}]`);
             }
           }
         }
-      } catch (avahiError) {
-        // Fallback or ignore
+      } catch (avahiError: any) {
+        if (avahiError.message?.includes("Daemon not running")) {
+            addLog("Discovery: Avahi daemon is not running. Try: sudo systemctl start avahi-daemon");
+        } else {
+            addLog(`avahi-browse scan skipped/failed.`);
+        }
       }
 
-      // 2. If avahi returned nothing or failed, try mkchromecast as fallback
+      // 2. Try catt scan as fallback (since it's installed by our script)
       if (devices.length === 0) {
-        const execResult = await execAsync("mkchromecast -l", { timeout: 10000 })
-          .catch(err => ({ stdout: err.stdout || "", stderr: err.stderr || "" }));
+        try {
+          const homeLocalBin = path.join(process.env.HOME || '', '.local/bin/catt');
+          const cattCmd = existsSync(homeLocalBin) ? homeLocalBin : 'catt';
+          
+          addLog("Attempting fallback discovery with 'catt scan'...");
+          const { stdout } = await execAsync(`${cattCmd} scan`, { timeout: 20000 });
+          const cattLines = stdout.split('\n');
+          for (const line of cattLines) {
+            // Typical output: Found "Living Room TV" at 192.168.1.5
+            const match = line.match(/Found "(.*?)" at (.*)/i);
+            if (match) {
+              devices.push(`${match[1]} [${match[2]}]`);
+            }
+          }
+        } catch (cattError) {
+          addLog("catt scan fallback failed or timed out.");
+        }
+      }
 
-        const output = (execResult.stdout || "") + "\n" + (execResult.stderr || "");
-        devices = output.split('\n')
-          .filter(line => line.toLowerCase().includes('name:'))
-          .map(line => {
-            const parts = line.split(/[Nn]ame:/);
-            return parts.length > 1 ? parts[1].trim() : null;
-          })
-          .filter((name): name is string => name !== null && name.length > 0);
+      // 3. Last resort: Try mkchromecast if available
+      if (devices.length === 0) {
+        try {
+          // Check if mkchromecast exists before running to avoid noisy "Command failed"
+          await execAsync("which mkchromecast");
+          const { stdout, stderr } = await execAsync("mkchromecast -l", { timeout: 15000 });
+          const output = (stdout || "") + "\n" + (stderr || "");
+          
+          const entries = output.split(/\n\s*\n/);
+          for (const entry of entries) {
+            const nameMatch = entry.match(/name:\s*(.*)/i);
+            const ipMatch = entry.match(/ip:\s*(.*)/i);
+            if (nameMatch && ipMatch) {
+              devices.push(`${nameMatch[1].trim()} [${ipMatch[1].trim()}]`);
+            } else if (nameMatch) {
+               devices.push(nameMatch[1].trim());
+            }
+          }
+        } catch (mkError) {
+           // Silent fallback
+        }
       }
       
-      const uniqueDevices = Array.from(new Set(devices));
+      const uniqueDevices = Array.from(new Set(devices)).filter(d => d.trim().length > 0);
 
       if (uniqueDevices.length === 0) {
         addLog("Scan complete: 0 physical devices detected.");
@@ -308,7 +362,7 @@ channel         = 2
 bitrateMode     = cbr
 format          = mp3
 bitrate         = ${streamSettings.bitrate}
-server          = ${streamSettings.icecastHost}
+server          = 127.0.0.1
 port            = ${streamSettings.icecastPort}
 password        = ${streamSettings.icecastSourcePass}
 mountPoint      = ${mountPoint}

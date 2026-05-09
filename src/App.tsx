@@ -83,7 +83,7 @@ export default function App() {
   const [showPasswords, setShowPasswords] = useState({ source: false, admin: false });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState({ devices: false, casting: false, action: false });
-  const [notification, setNotification] = useState<{message: string, type: 'info' | 'success'} | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'error'} | null>(null);
   const [criticalError, setCriticalError] = useState<{message: string, tip: string} | null>(null);
   const [showScreensaver, setShowScreensaver] = useState(false);
   const inactiveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -93,7 +93,7 @@ export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const showToast = (message: string, type: 'info' | 'success' | 'error' = 'success') => {
-    setNotification({ message, type: type === 'error' ? 'info' : type }); // Simple fallback for UI mapping if needed
+    setNotification({ message, type });
     console.log(`[TOAST] ${type.toUpperCase()}: ${message}`);
     setTimeout(() => setNotification(null), 3000);
   };
@@ -509,11 +509,11 @@ export default function App() {
                   if (selectedDevice?.type === 'mock') {
                     showToast(`Mode: Testing with Mock Audio`, 'info');
                   } else if (deviceId) {
-                    showToast(`Input linked: ${deviceName.substring(0, 15)}...`);
+                    showToast(`Input linked: ${deviceName}`);
                   }
                 }}
                 disabled={loading.devices}
-                className={`w-full bg-[var(--panel)] border rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 ${
+                className={`w-full bg-[var(--panel)] border rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 truncate ${
                   deviceFlash ? 'ring-2 ring-pink-500 bg-pink-500/10' : ''
                 } ${
                   devices.find(d => d.id === config.device)?.type === 'mock' 
@@ -524,7 +524,7 @@ export default function App() {
                 <option value="">{loading.devices ? 'Scanning devices...' : 'Select input device'}</option>
                 {!loading.devices && devices.length === 0 && <option disabled>No devices found</option>}
                 {devices.map(d => (
-                  <option key={d.id} value={d.id}>{d.name.substring(0, 18)}</option>
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </div>
@@ -578,10 +578,10 @@ export default function App() {
                   setReceiverFlash(true);
                   setTimeout(() => setReceiverFlash(false), 600);
                   
-                  if (val) showToast(`Output target set to ${val.substring(0, 15)}...`);
+                  if (val) showToast(`Output target set to ${val}`);
                 }}
                 disabled={loading.casting}
-                className={`w-full bg-[var(--panel)] border border-[var(--border)] rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 ${
+                className={`w-full bg-[var(--panel)] border border-[var(--border)] rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 truncate ${
                   receiverFlash ? 'ring-2 ring-cyan-500 bg-cyan-500/10' : ''
                 }`}
               >
@@ -695,9 +695,9 @@ export default function App() {
           </div>
 
           {/* Target Info */}
-          <div className="absolute bottom-4 left-4 flex flex-col gap-0.5">
+          <div className="absolute bottom-4 left-4 flex flex-col gap-0.5 max-w-[200px]">
             <span className="text-[8px] font-bold text-pink-500/50 uppercase tracking-widest leading-none">Output Path</span>
-            <span className="text-[10px] font-mono text-pink-400 font-bold tracking-tight">
+            <span className="text-[10px] font-mono text-pink-400 font-bold tracking-tight truncate">
               {config.chromecast || 'UNLINKED_DECK'}
             </span>
           </div>
@@ -972,10 +972,15 @@ export default function App() {
             className={`absolute bottom-6 right-6 z-[200] px-4 py-2 rounded-lg border backdrop-blur-md shadow-2xl flex items-center gap-3 ${
               notification.type === 'success' 
                 ? 'bg-pink-500/20 border-pink-500/50 text-pink-400' 
-                : 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                : notification.type === 'error'
+                  ? 'bg-red-500/20 border-red-500/50 text-red-500'
+                  : 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
             }`}
           >
-            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${notification.type === 'success' ? 'bg-pink-500' : 'bg-cyan-500'}`} />
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+              notification.type === 'success' ? 'bg-pink-500' : 
+              notification.type === 'error' ? 'bg-red-500' : 'bg-cyan-500'
+            }`} />
             <span className="text-[10px] font-black uppercase tracking-widest">{notification.message}</span>
           </motion.div>
         )}
@@ -1074,7 +1079,7 @@ function CircularVisualizer({ spinning, armActive, lowPerf = false }: { spinning
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V3.1</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V3.4</div>
         </div>
       </motion.div>
 

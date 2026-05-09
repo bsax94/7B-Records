@@ -19,7 +19,11 @@ fi
 
 echo "📦 1/4: Installing System Packages..."
 apt-get update
-apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools avahi-utils
+apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools avahi-utils avahi-daemon
+
+echo "📡 Starting Avahi Discovery Daemon..."
+systemctl enable avahi-daemon
+systemctl start avahi-daemon
 
 echo "👥 Setting up User Permissions..."
 # Add current user to audio and plugdev groups
