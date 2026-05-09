@@ -147,6 +147,36 @@ async function startServer() {
     res.json(streamSettings);
   });
 
+  apiRouter.get("/verify", async (req, res) => {
+    const results = {
+      icecast: false,
+      hardware: false,
+      permissions: false,
+      logs: logs.length > 0
+    };
+
+    try {
+      // Check Icecast
+      const { stdout: netstat } = await execAsync("netstat -an | grep 8000 | grep LISTEN || true");
+      results.icecast = !!netstat;
+
+      // Check Hardware
+      const { stdout: devices } = await execAsync("arecord -l || true");
+      const cardId = streamSettings.device.split(":")[1]?.split(",")[0];
+      results.hardware = cardId ? devices.includes(`card ${cardId}:`) : true; // mock devices are always true
+
+      // Check Permissions (can we write to tmp?)
+      const testFile = path.join(os.tmpdir(), "7b-records-verify.tmp");
+      await fs.writeFile(testFile, "test");
+      await fs.unlink(testFile);
+      results.permissions = true;
+
+      res.json({ success: true, results });
+    } catch (error) {
+      res.json({ success: false, error: String(error), results });
+    }
+  });
+
   apiRouter.post("/settings", (req, res) => {
     streamSettings = { ...streamSettings, ...req.body };
     addLog(`Settings updated: Device=${streamSettings.device}, bitrate=${streamSettings.bitrate}`);

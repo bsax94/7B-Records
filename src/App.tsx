@@ -683,6 +683,63 @@ export default function App() {
             </span>
           </div>
 
+          {/* Desktop Icon */}
+          <div className="absolute top-20 left-8 z-20">
+             <motion.button
+               onDoubleClick={async () => {
+                 if (status.streaming) {
+                   showToast("Stream is already live", 'info');
+                   return;
+                 }
+                 
+                 showToast("Pre-flight Verification...", 'info');
+                 try {
+                   const res = await fetch('/api/verify');
+                   const data = await res.json();
+                   
+                   if (data.success) {
+                     const { results } = data;
+                     if (!results.icecast) {
+                       showToast("Icecast Offline - Attempting start", 'info');
+                       await fetch('/api/setup/icecast', { 
+                         method: 'POST', 
+                         body: JSON.stringify(settings), 
+                         headers: {'Content-Type': 'application/json'} 
+                       });
+                     }
+                     
+                     if (!results.hardware) {
+                       showToast("HARDWARE NOT FOUND - check connections", 'info');
+                     }
+                     
+                     showToast("Settings Verified. Starting Core...", 'success');
+                     toggleStream();
+                   } else {
+                     showToast("Verification Failed", 'info');
+                     setShowSettings(true);
+                   }
+                 } catch (e) {
+                   showToast("Verification Error", 'info');
+                 }
+               }}
+               whileHover={{ scale: 1.1 }}
+               whileTap={{ scale: 0.95 }}
+               className="flex flex-col items-center gap-2 group cursor-pointer text-left"
+             >
+                <div className="w-14 h-14 bg-black/50 border border-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:border-cyan-500/50 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all shadow-xl">
+                  <Wrench className="w-6 h-6 text-white/30 group-hover:text-cyan-400 transition-colors" />
+                </div>
+                <div className="space-y-0.5 px-1">
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest group-hover:text-cyan-400 transition-colors leading-none">
+                      Launch Core
+                   </div>
+                   <div className="text-[7px] text-white/20 font-mono uppercase tracking-tighter leading-none">
+                      Double Click to Start
+                   </div>
+                </div>
+             </motion.button>
+          </div>
+
           {/* Modal Logs Overlay */}
           <AnimatePresence>
             {showSettings && (
@@ -1055,7 +1112,7 @@ function CircularVisualizer({ spinning, armActive, lowPerf = false }: { spinning
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.6</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.7</div>
         </div>
       </motion.div>
 
