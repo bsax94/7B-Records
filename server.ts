@@ -54,6 +54,7 @@ async function startServer() {
     icecastSourcePass: "hackme",
     icecastAdminPass: "hackme",
     icecastMount: "/stream.mp3",
+    bitsPerSample: "16",
     bitrate: "320",
     sampleRate: "44100"
   };
@@ -286,6 +287,11 @@ async function startServer() {
         ? streamSettings.icecastMount 
         : `/${streamSettings.icecastMount}`;
 
+      // ALSA Plug Layer: Prefer plughw: for hardware devices to enable automatic format conversion
+      const alsaDevice = (device.startsWith("hw:") && !device.startsWith("plughw:")) 
+        ? `plug${device}` 
+        : device;
+
       // IMPORTANT: config string must have NO leading spaces for DarkIce sections [header]
       const configText = `[general]
 duration        = 0
@@ -293,9 +299,9 @@ bufferSecs      = 2
 reconnect       = yes
 
 [input]
-device          = ${device}
+device          = ${alsaDevice}
 sampleRate      = ${streamSettings.sampleRate}
-bitsPerSample   = 16
+bitsPerSample   = ${streamSettings.bitsPerSample || '16'}
 channel         = 2
 
 [icecast2-0]
@@ -393,6 +399,10 @@ name            = 7B Records Live
             if (logMsgText.includes("No such file or directory") || logMsgText.includes("Unknown PCM")) {
               addLog(`CRITICAL ERROR: Device ${streamSettings.device} is missing.`);
               addLog("TIP: Re-select your USB device in settings or try 'hw:2,0'.");
+            }
+            if (logMsgText.includes("can't set sample format")) {
+              addLog("HARDWARE LIMITATION: Your USB device requires a different bit-depth.");
+              addLog("TIP: Ensure you are using the 'plughw' layer in settings (now handled automatically).");
             }
           }
         };

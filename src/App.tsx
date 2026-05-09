@@ -92,8 +92,9 @@ export default function App() {
   
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const showToast = (message: string, type: 'info' | 'success' = 'success') => {
-    setNotification({ message, type });
+  const showToast = (message: string, type: 'info' | 'success' | 'error' = 'success') => {
+    setNotification({ message, type: type === 'error' ? 'info' : type }); // Simple fallback for UI mapping if needed
+    console.log(`[TOAST] ${type.toUpperCase()}: ${message}`);
     setTimeout(() => setNotification(null), 3000);
   };
 
@@ -1073,7 +1074,7 @@ function CircularVisualizer({ spinning, armActive, lowPerf = false }: { spinning
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V3.0</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V3.1</div>
         </div>
       </motion.div>
 
