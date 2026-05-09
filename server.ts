@@ -199,8 +199,23 @@ async function startServer() {
 
       // 1. Try avahi-browse (native linux mDNS)
       try {
-        const { stdout } = await execAsync("avahi-browse -rt _googlecast._tcp --parsable", { timeout: 13000 });
+        addLog("Discovery Trace: Method 1 (avahi-browse) starting...");
+        // Ensure avahi-daemon is running if possible
+        try {
+          const { stdout: checkBrowse } = await execAsync("avahi-browse -r _googlecast._tcp --parsable -t", { timeout: 2500 });
+        } catch (e: any) {
+          if (e.message?.includes("Daemon not running") || e.message?.includes("failed")) {
+            addLog("Discovery Trace: mDNS daemon check failed or daemon not running. Attempting manual start...");
+            // Manual start attempt for restricted environments
+            spawn("dbus-daemon", ["--system", "--fork"], { stdio: 'ignore' }).on('error', () => {});
+            spawn("avahi-daemon", ["-D"], { stdio: 'ignore' }).on('error', () => {});
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+
+        const { stdout } = await execAsync("avahi-browse -rt _googlecast._tcp --parsable", { timeout: 15000 });
         const lines = stdout.split("\n");
+        let avahiCount = 0;
         for (const line of lines) {
           if (line.startsWith("=") && line.includes("_googlecast._tcp")) {
             const parts = line.split(";");
@@ -219,14 +234,16 @@ async function startServer() {
               const ipParts = parts.filter(p => p.includes('.') && p.split('.').length === 4);
               const bestIp = ipParts.length > 0 ? ipParts[0] : parts[7];
               devices.push(`${friendlyName} [${bestIp}]`);
+              avahiCount++;
             }
           }
         }
+        addLog(`Discovery Trace: avahi-browse found ${avahiCount} candidates.`);
       } catch (avahiError: any) {
         if (avahiError.message?.includes("Daemon not running")) {
-            addLog("Discovery: Avahi daemon is not running. Try: sudo systemctl start avahi-daemon");
+            addLog("Discovery Trace: avahi-browse failed - mDNS daemon unavailable.");
         } else {
-            addLog(`avahi-browse scan skipped/failed.`);
+            addLog(`Discovery Trace Debug: avahi-browse failed/timed out: ${avahiError.message}`);
         }
       }
 
@@ -236,41 +253,56 @@ async function startServer() {
           const homeLocalBin = path.join(process.env.HOME || '', '.local/bin/catt');
           const cattCmd = existsSync(homeLocalBin) ? homeLocalBin : 'catt';
           
-          addLog("Attempting fallback discovery with 'catt scan'...");
-          const { stdout } = await execAsync(`${cattCmd} scan`, { timeout: 20000 });
-          const cattLines = stdout.split('\n');
+          addLog(`Discovery Trace: Method 2 (${cattCmd} scan) starting...`);
+          // catt scan returns non-zero if nothing found, so we catch and parse what we can
+          const { stdout, stderr } = await execAsync(`${cattCmd} scan`, { timeout: 25000 }).catch(err => ({ 
+            stdout: err.stdout || "", 
+            stderr: err.stderr || "" 
+          }));
+          
+          if (stderr) addLog(`Discovery Trace Debug: catt stderr: ${stderr.substring(0, 100)}...`);
+          
+          const cattLines = (stdout as string).split('\n');
+          let cattCount = 0;
           for (const line of cattLines) {
             // Typical output: Found "Living Room TV" at 192.168.1.5
             const match = line.match(/Found "(.*?)" at (.*)/i);
             if (match) {
               devices.push(`${match[1]} [${match[2]}]`);
+              cattCount++;
             }
           }
-        } catch (cattError) {
-          addLog("catt scan fallback failed or timed out.");
+          addLog(`Discovery Trace: catt found ${cattCount} candidates.`);
+        } catch (cattError: any) {
+          addLog(`Discovery Trace Debug: catt scan fatal error: ${cattError.message}`);
         }
       }
 
       // 3. Last resort: Try mkchromecast if available
       if (devices.length === 0) {
         try {
+          addLog("Discovery Trace: Method 3 (mkchromecast -l) starting...");
           // Check if mkchromecast exists before running to avoid noisy "Command failed"
           await execAsync("which mkchromecast");
-          const { stdout, stderr } = await execAsync("mkchromecast -l", { timeout: 15000 });
+          const { stdout, stderr } = await execAsync("mkchromecast -l", { timeout: 20000 });
           const output = (stdout || "") + "\n" + (stderr || "");
           
           const entries = output.split(/\n\s*\n/);
+          let mkCount = 0;
           for (const entry of entries) {
             const nameMatch = entry.match(/name:\s*(.*)/i);
             const ipMatch = entry.match(/ip:\s*(.*)/i);
             if (nameMatch && ipMatch) {
               devices.push(`${nameMatch[1].trim()} [${ipMatch[1].trim()}]`);
+              mkCount++;
             } else if (nameMatch) {
                devices.push(nameMatch[1].trim());
+               mkCount++;
             }
           }
-        } catch (mkError) {
-           // Silent fallback
+          addLog(`Discovery Trace: mkchromecast found ${mkCount} candidates.`);
+        } catch (mkError: any) {
+           addLog(`Discovery Trace Debug: mkchromecast disabled or failed: ${mkError.message}`);
         }
       }
       
@@ -322,10 +354,11 @@ async function startServer() {
           } catch (e) {}
           
           if (i === 0) {
-            addLog(`Icecast port ${streamSettings.icecastPort} not ready, attempting service restart...`);
-            await execAsync("sudo systemctl restart icecast2 || true");
+            addLog(`Icecast port ${streamSettings.icecastPort} not ready, attempting to start service directly...`);
+            // Try starting icecast2 in the background if systemctl isn't available/working
+            spawn("icecast2", ["-c", "/etc/icecast2/icecast.xml", "-b"], { detached: true, stdio: 'ignore' }).unref();
           }
-          await new Promise(r => setTimeout(r, 1500));
+          await new Promise(r => setTimeout(r, 2000));
         }
         return false;
       };

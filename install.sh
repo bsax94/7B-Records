@@ -18,12 +18,15 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "📦 1/4: Installing System Packages..."
-apt-get update
-apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools avahi-utils avahi-daemon
+DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools avahi-utils avahi-daemon dbus
 
-echo "📡 Starting Avahi Discovery Daemon..."
-systemctl enable avahi-daemon
-systemctl start avahi-daemon
+echo "📡 Starting Discovery Services..."
+mkdir -p /var/run/dbus
+dbus-daemon --system --fork || true
+systemctl enable avahi-daemon || true
+systemctl start avahi-daemon || true
+avahi-daemon -D || true
 
 echo "👥 Setting up User Permissions..."
 # Add current user to audio and plugdev groups
