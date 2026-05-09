@@ -468,6 +468,95 @@ name            = 7B Records Live
     res.json({ success: true });
   });
 
+  apiRouter.post("/setup/icecast", async (req, res) => {
+    try {
+      const { sourcePass, adminPass, port } = req.body;
+      addLog(`Re-configuring Icecast with NEW settings (Port: ${port})...`);
+      
+      const configPath = "/etc/icecast2/icecast.xml";
+      const configXml = `<icecast>
+    <location>7B Records Studio</location>
+    <admin>admin@localhost</admin>
+    <limits>
+        <clients>100</clients>
+        <sources>2</sources>
+        <queue-size>524288</queue-size>
+        <client-timeout>30</client-timeout>
+        <header-timeout>15</header-timeout>
+        <source-timeout>10</source-timeout>
+        <burst-on-connect>1</burst-on-connect>
+        <burst-size>65536</burst-size>
+    </limits>
+    <authentication>
+        <source-password>${sourcePass}</source-password>
+        <relay-password>${sourcePass}</relay-password>
+        <admin-user>admin</admin-user>
+        <admin-password>${adminPass}</admin-password>
+    </authentication>
+    <hostname>localhost</hostname>
+    <listen-socket>
+        <port>${port}</port>
+        <bind-address>0.0.0.0</bind-address>
+    </listen-socket>
+    <http-headers>
+        <header name="Access-Control-Allow-Origin" value="*" />
+    </http-headers>
+    <mount type="normal">
+        <mount-name>/stream.mp3</mount-name>
+    </mount>
+    <fileserve>1</fileserve>
+    <paths>
+        <basedir>/usr/share/icecast2</basedir>
+        <logdir>/var/log/icecast2</logdir>
+        <webroot>/usr/share/icecast2/web</webroot>
+        <adminroot>/usr/share/icecast2/admin</adminroot>
+        <alias source="/" destination="/status.xsl"/>
+    </paths>
+    <logging>
+        <accesslog>access.log</accesslog>
+        <errorlog>error.log</errorlog>
+        <loglevel>3</loglevel>
+    </logging>
+</icecast>`;
+
+      await fs.writeFile("icecast.xml.tmp", configXml);
+      await execAsync(`sudo mv icecast.xml.tmp ${configPath}`);
+      await execAsync("sudo systemctl restart icecast2");
+      
+      addLog("Icecast 2 re-configured and restarted successfully.");
+      res.json({ success: true });
+    } catch (error) {
+      addLog(`Icecast Setup Failed: ${error}`);
+      res.status(500).json({ error: "Failed to configure Icecast" });
+    }
+  });
+
+  apiRouter.post("/setup/system", async (req, res) => {
+    try {
+      const { sourcePass, adminPass } = req.body;
+      addLog("Starting Full System Installation (This may take a minute)...");
+      
+      // Run install.sh
+      const proc = spawn("sudo", ["bash", "./install.sh", sourcePass, adminPass]);
+      
+      proc.stdout.on('data', (data) => addLog(`Install: ${data.toString().trim()}`));
+      proc.stderr.on('data', (data) => addLog(`Install Error: ${data.toString().trim()}`));
+      
+      proc.on('close', (code) => {
+        if (code === 0) {
+          addLog("Full System Installation completed successfully.");
+        } else {
+          addLog(`Installation failed with exit code ${code}`);
+        }
+      });
+
+      res.json({ success: true, message: "Installation started in background" });
+    } catch (error) {
+      addLog(`System Setup Launch Failed: ${error}`);
+      res.status(500).json({ error: "Failed to start installation" });
+    }
+  });
+
   // Catch-all for API router to prevent falling through to SPA handler
   apiRouter.use((req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.url}` });

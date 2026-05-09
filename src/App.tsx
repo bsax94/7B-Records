@@ -28,7 +28,9 @@ import {
   Clock,
   Eye,
   EyeOff,
-  Tv
+  Tv,
+  Cpu,
+  Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -297,6 +299,55 @@ export default function App() {
       }
     } finally {
       setLoading(prev => ({ ...prev, casting: false }));
+    }
+  };
+
+  const runIcecastSetup = async () => {
+    try {
+      setLoading(prev => ({ ...prev, action: true }));
+      const res = await fetch('/api/setup/icecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePass: settings.icecastSourcePass,
+          adminPass: settings.icecastAdminPass,
+          port: settings.icecastPort
+        })
+      });
+      if (res.ok) {
+        showToast("Icecast Re-configured!", 'success');
+      } else {
+        const err = await res.json();
+        showToast(`Setup Failed: ${err.error}`, 'info');
+      }
+    } catch (e) {
+      showToast("Network error during setup", 'info');
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
+    }
+  };
+
+  const runSystemSetup = async () => {
+    if (!confirm("This will reinstall system packages and drivers. Continue?")) return;
+    
+    try {
+      setLoading(prev => ({ ...prev, action: true }));
+      const res = await fetch('/api/setup/system', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePass: settings.icecastSourcePass,
+          adminPass: settings.icecastAdminPass
+        })
+      });
+      if (res.ok) {
+        showToast("System Installer Started", 'success');
+        setShowLogs(true); // Show logs to see progress
+      }
+    } catch (e) {
+      showToast("Failed to launch installer", 'info');
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
     }
   };
 
@@ -758,6 +809,31 @@ export default function App() {
                       </div>
                    </div>
 
+                   <div className="space-y-4 pt-4 border-t border-white/5">
+                      <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Hardware & System Orchestration</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                         <button 
+                           type="button"
+                           onClick={runIcecastSetup}
+                           disabled={loading.action}
+                           className="flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-cyan-400 disabled:opacity-50 transition-all hover:border-cyan-500/50"
+                         >
+                           <Wrench className="w-4 h-4" />
+                           RECONFIGURE ICECAST
+                         </button>
+                         <button 
+                           type="button"
+                           onClick={runSystemSetup}
+                           disabled={loading.action}
+                           className="flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-pink-500 disabled:opacity-50 transition-all hover:border-pink-500/50"
+                         >
+                           <Cpu className="w-4 h-4" />
+                           RUN MASTER INSTALLER
+                         </button>
+                      </div>
+                      <p className="text-[7px] text-white/30 italic">Use these tools if you change passwords or if the Icecast server is unreachable. Master Installer requires sudo permissions on the host.</p>
+                   </div>
+
                    <div className="pt-6 border-t border-white/5 flex gap-4">
                       <button 
                         type="button"
@@ -966,7 +1042,7 @@ function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armAct
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.0</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.1</div>
         </div>
       </motion.div>
 
