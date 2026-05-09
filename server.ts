@@ -250,16 +250,16 @@ async function startServer() {
         await execAsync("pkill -9 catt || true");
       } catch (e) {}
 
-      // Verify Icecast is running or try to start it
+      // Handshake: Ensure Icecast is fully 'warm' and reachable
       try {
-        const { stdout: netstat } = await execAsync("netstat -an | grep 8000 | grep LISTEN || true");
-        if (!netstat) {
-          addLog("Icecast not detected on port 8000. Attempting to start/restart icecast2 service...");
+        const { stdout: iceStatus } = await execAsync(`curl -s http://localhost:${streamSettings.icecastPort}/status-json.xsl || echo "offline"`);
+        if (iceStatus.includes("offline")) {
+          addLog(`Icecast not detected on port ${streamSettings.icecastPort}. Attempting to start/restart icecast2 service...`);
           await execAsync("sudo systemctl restart icecast2 || true");
           await new Promise(r => setTimeout(r, 2000));
         }
       } catch (e) {
-        addLog("Could not verify Icecast status. Continuing anyway...");
+        addLog("Pre-flight check: Icecast status unconfirmed. Proceeding...");
       }
 
       // Sanitize mount point (MUST start with /)
@@ -274,7 +274,7 @@ bufferSecs      = 2
 reconnect       = yes
 
 [input]
-device          = ${streamSettings.device}
+device          = ${device}
 sampleRate      = ${streamSettings.sampleRate}
 bitsPerSample   = 16
 channel         = 2
@@ -291,7 +291,7 @@ name            = 7B Records Live
 `;
       const activeConfigPath = path.join(os.tmpdir(), "7b-records-darkice.cfg");
       await fs.writeFile(activeConfigPath, configText);
-      addLog(`Generated session config: ${activeConfigPath} (Sanitized Mount Point)`);
+      addLog(`Generated session config: ${activeConfigPath} (Mount: ${mountPoint})`);
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
 
@@ -473,26 +473,48 @@ name            = 7B Records Live
         }
 
         if (!connected) {
-          addLog("CRITICAL: DarkIce could not reach Icecast after multiple attempts.");
+          addLog("BRIDGE FAILURE: Stream not available for casting.");
           addLog("DASHBOARD: Entering Simulation Mode for UI preview.");
           darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
           mockMode = true;
-        }
 
-        // Wait a small bit for buffer to fill
-        await new Promise(r => setTimeout(r, 2000));
+          // ABORT casting if bridge failed
+          return;
+        }
 
         const activeMount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
         const streamUrl = `http://${LOCAL_IP}:${streamSettings.icecastPort}${activeMount}`;
-        addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
         
-        // Try mkchromecast first
-        mkChromecastProcess = spawnProcess("mkchromecast", [
-          "--name", chromecast,
-          "--source-url", streamUrl,
-          "-c", "mp3",
-          "--control"
-        ], "Cast");
+        // IP Sanitization Logic
+        let castTarget = chromecast;
+        const ipMatch = chromecast.match(/\[(.*?)\]/);
+        if (ipMatch && ipMatch[1]) {
+            const rawIp = ipMatch[1];
+            // If it's IPv6 (contains colons), wrap it in brackets for catt
+            if (rawIp.includes(':')) {
+                castTarget = `[${rawIp}]`;
+                addLog(`[SANITIZER] IPv6 Target detected: ${castTarget}`);
+            } else {
+                castTarget = rawIp;
+                addLog(`[SANITIZER] IPv4 Target detected: ${castTarget}`);
+            }
+        }
+
+        addLog(`Attempting to cast ${streamUrl} to ${castTarget}...`);
+        
+        // PRIMARY ENGINE: catt
+        try {
+          addLog(`[EXEC] Launching primary engine: catt`);
+          mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
+        } catch (err) {
+          addLog(`[CRITICAL] Catt failed to spawn. Attempting mkchromecast as emergency fallback...`);
+          mkChromecastProcess = spawnProcess("mkchromecast", [
+            "--name", chromecast,
+            "--source-url", streamUrl,
+            "-c", "mp3",
+            "--control"
+          ], "Cast");
+        }
       })();
 
       res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:${streamSettings.icecastPort}/stream.mp3` });
