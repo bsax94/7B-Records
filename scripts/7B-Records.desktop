@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=7B Records
+Comment=Start Turntable Streamer & Dashboard
+Exec=/bin/bash /home/node/app/scripts/7b-launcher.sh
+Icon=audio-x-generic
+Terminal=true
+Categories=AudioVideo;Audio;
+StartupNotify=true

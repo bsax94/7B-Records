@@ -3,6 +3,8 @@
 # install.sh - 7B Records Full System Installer
 # Purpose: Installs DarkIce, Icecast2, and dependencies for the 7B Records streaming stack.
 
+APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 SOURCE_PASS="${1:-hackme}"
 ADMIN_PASS="${2:-hackme}"
 
@@ -90,6 +92,26 @@ pip3 install catt --break-system-packages || pip3 install catt
 echo "🎸 4/4: Hardware Check..."
 echo "Detected Audio Devices:"
 arecord -l | grep "card"
+
+echo "🖥️  Checking for Desktop Environment..."
+# Attempt to find the user's desktop
+DESKTOP_DIR="/home/$SUDO_USER/Desktop"
+if [ ! -d "$DESKTOP_DIR" ] && [ -d "/home/node/Desktop" ]; then
+    DESKTOP_DIR="/home/node/Desktop"
+fi
+
+if [ -d "$DESKTOP_DIR" ]; then
+    echo "[SETUP] Installing Desktop Shortcut to $DESKTOP_DIR"
+    cp scripts/7B-Records.desktop "$DESKTOP_DIR/"
+    # Adjust paths in the desktop file dynamically based on install location
+    sed -i "s|/home/node/app|$APP_DIR|g" "$DESKTOP_DIR/7B-Records.desktop"
+    chmod +x "$DESKTOP_DIR/7B-Records.desktop"
+    echo "[SUCCESS] Desktop icon created."
+else
+    echo "[SKIP] No Desktop directory found. Skipping shortcut creation."
+fi
+
+chmod +x scripts/7b-launcher.sh
 
 echo "============================================"
 echo "🎊 INSTALLATION SUCCESSFUL!"
