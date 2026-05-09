@@ -251,15 +251,26 @@ async function startServer() {
       } catch (e) {}
 
       // Handshake: Ensure Icecast is fully 'warm' and reachable
-      try {
-        const { stdout: iceStatus } = await execAsync(`curl -s http://localhost:${streamSettings.icecastPort}/status-json.xsl || echo "offline"`);
-        if (iceStatus.includes("offline")) {
-          addLog(`Icecast not detected on port ${streamSettings.icecastPort}. Attempting to start/restart icecast2 service...`);
-          await execAsync("sudo systemctl restart icecast2 || true");
-          await new Promise(r => setTimeout(r, 2000));
+      const waitForIcecast = async (maxRetries = 5): Promise<boolean> => {
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            const { stdout } = await execAsync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${streamSettings.icecastPort}/status-json.xsl || echo "000"`);
+            if (stdout.trim() === "200") return true;
+          } catch (e) {}
+          
+          if (i === 0) {
+            addLog(`Icecast port ${streamSettings.icecastPort} not ready, attempting service restart...`);
+            await execAsync("sudo systemctl restart icecast2 || true");
+          }
+          await new Promise(r => setTimeout(r, 1500));
         }
-      } catch (e) {
-        addLog("Pre-flight check: Icecast status unconfirmed. Proceeding...");
+        return false;
+      };
+
+      if (!(await waitForIcecast())) {
+        addLog("Pre-flight Warning: Icecast service not responding. DarkIce may fail to connect.");
+      } else {
+        addLog("Icecast bridge is warm and reachable.");
       }
 
       // Sanitize mount point (MUST start with /)
@@ -502,19 +513,32 @@ name            = 7B Records Live
 
         addLog(`Attempting to cast ${streamUrl} to ${castTarget}...`);
         
-        // PRIMARY ENGINE: catt
-        try {
-          addLog(`[EXEC] Launching primary engine: catt`);
-          mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
-        } catch (err) {
-          addLog(`[CRITICAL] Catt failed to spawn. Attempting mkchromecast as emergency fallback...`);
-          mkChromecastProcess = spawnProcess("mkchromecast", [
-            "--name", chromecast,
-            "--source-url", streamUrl,
-            "-c", "mp3",
-            "--control"
-          ], "Cast");
-        }
+        // Casting Engine Selection (Primary: catt, Fallback: mkchromecast)
+        const runCastingEngine = async () => {
+          let hasCatt = false;
+          try {
+            await execAsync("which catt");
+            hasCatt = true;
+          } catch (e) {
+            const homeLocalBin = path.join(process.env.HOME || "", ".local/bin/catt");
+            if (existsSync(homeLocalBin)) hasCatt = true;
+          }
+
+          if (hasCatt) {
+            addLog(`[EXEC] Launching primary engine: catt to ${castTarget}`);
+            mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
+          } else {
+            addLog(`[EXEC] catt not found. Launching fallback engine: mkchromecast`);
+            mkChromecastProcess = spawnProcess("mkchromecast", [
+              "--name", chromecast,
+              "--source-url", streamUrl,
+              "-c", "mp3",
+              "--control"
+            ], "Cast");
+          }
+        };
+
+        runCastingEngine();
       })();
 
       res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:${streamSettings.icecastPort}/stream.mp3` });
