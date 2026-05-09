@@ -313,6 +313,20 @@ export default function App() {
             />
           </div>
           <div className="h-4 w-px bg-[var(--border)] mx-1" />
+          <button
+            onClick={() => {
+              const logContent = logs.join('\n');
+              navigator.clipboard.writeText(logContent).then(() => {
+                setNotification({ message: 'LOGS COPIED TO CLIPBOARD', type: 'success' });
+                setTimeout(() => setNotification(null), 3000);
+              });
+            }}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded border border-white/10 transition-all text-[8px] font-black uppercase tracking-widest mr-2"
+            title="Copy logs to clipboard"
+          >
+            <MessageSquare className="w-2.5 h-2.5" />
+            Share Logs
+          </button>
           <button 
             type="button"
             onClick={() => setShowSettings(true)}
@@ -870,7 +884,7 @@ function CircularVisualizer({ active }: { active: boolean }) {
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.7</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V1.8</div>
         </div>
       </motion.div>
 
