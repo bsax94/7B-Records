@@ -24,7 +24,6 @@ import {
   VolumeX,
   Volume1,
   Volume2,
-  MessageSquare,
   Clock,
   Eye,
   EyeOff,
@@ -74,10 +73,11 @@ export default function App() {
     icecastPort: "8000",
     icecastSourcePass: "hackme",
     icecastAdminPass: "hackme",
-    icecastMount: "stream.mp3",
+    icecastMount: "/stream.mp3",
     bitrate: "320",
     sampleRate: "44100"
   });
+  const [isLowPerf, setIsLowPerf] = useState(false);
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
   const [showPasswords, setShowPasswords] = useState({ source: false, admin: false });
@@ -373,7 +373,7 @@ export default function App() {
     <div 
       ref={containerRef}
       className={`bg-[var(--bg)] flex flex-col overflow-hidden transition-all duration-500 ${
-        isFullscreen ? 'w-screen h-screen' : 'w-[800px] h-[480px] mx-auto border border-[var(--border)] shadow-2xl rounded-xl m-4'
+        isFullscreen ? 'w-screen h-screen' : 'w-full max-w-[800px] h-full sm:h-[480px] mx-auto border border-[var(--border)] shadow-2xl rounded-xl sm:m-4'
       }`}
     >
       {/* Top Navigation Bar */}
@@ -400,40 +400,26 @@ export default function App() {
           </div>
           <div className="h-4 w-px bg-[var(--border)] mx-1" />
           <button
-            onClick={() => {
-              const logContent = logs.join('\n');
-              navigator.clipboard.writeText(logContent).then(() => {
-                setNotification({ message: 'LOGS COPIED TO CLIPBOARD', type: 'success' });
-                setTimeout(() => setNotification(null), 3000);
-              });
-            }}
-            className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded border border-white/10 transition-all text-[8px] font-black uppercase tracking-widest mr-2"
-            title="Copy logs to clipboard"
-          >
-            <MessageSquare className="w-2.5 h-2.5" />
-            Share Logs
-          </button>
-          <button
             onClick={() => setShowScreensaver(true)}
-            className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded border border-white/10 transition-all text-[8px] font-black uppercase tracking-widest mr-2"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded border border-white/10 transition-all text-[9px] font-black uppercase tracking-widest mr-1 active:scale-95"
             title="Show Screensaver"
           >
-            <Tv className="w-2.5 h-2.5" />
+            <Tv className="w-3 h-3" />
             Sleep
           </button>
           <button 
             type="button"
             onClick={() => setShowSettings(true)}
-            className="p-1.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)]"
+            className="p-2.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)] active:bg-white/10"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-5 h-5" />
           </button>
           <button 
             type="button"
             onClick={toggleFullscreen}
-            className="p-1.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)]"
+            className="p-2.5 hover:bg-white/5 rounded transition-colors text-[var(--ink-secondary)] active:bg-white/10"
           >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
           </button>
         </div>
       </nav>
@@ -466,9 +452,9 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Grid Content */}
-      <div className="flex-grow flex overflow-hidden">
+      <div className="flex-grow flex flex-col sm:flex-row overflow-hidden">
         {/* Sidebar Controls */}
-        <aside className="w-56 border-r border-[var(--border)] bg-[var(--card)]/50 p-4 flex flex-col gap-4">
+        <aside className="w-full sm:w-56 border-b sm:border-b-0 sm:border-r border-[var(--border)] bg-[var(--card)]/50 p-4 flex flex-col gap-4 overflow-y-auto">
           <section className="space-y-3">
             <div>
               <div className="flex justify-between items-center mb-1.5">
@@ -508,7 +494,7 @@ export default function App() {
                   }
                 }}
                 disabled={loading.devices}
-                className={`w-full bg-[var(--panel)] border rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 ${
+                className={`w-full bg-[var(--panel)] border rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:ring-1 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 ${
                   deviceFlash ? 'ring-2 ring-pink-500 bg-pink-500/10' : ''
                 } ${
                   devices.find(d => d.id === config.device)?.type === 'mock' 
@@ -529,7 +515,7 @@ export default function App() {
               <select 
                 value={config.bitrate}
                 onChange={(e) => setConfig({ ...config, bitrate: parseInt(e.target.value) })}
-                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                className="w-full bg-[var(--panel)] border border-[var(--border)] rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono appearance-none cursor-pointer active:bg-white/5"
               >
                 <option value="96">96 kbps (Low)</option>
                 <option value="128">128 kbps (Mid)</option>
@@ -576,7 +562,7 @@ export default function App() {
                   if (val) showToast(`Output target set to ${val.substring(0, 15)}...`);
                 }}
                 disabled={loading.casting}
-                className={`w-full bg-[var(--panel)] border border-[var(--border)] rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50 ${
+                className={`w-full bg-[var(--panel)] border border-[var(--border)] rounded px-3 py-2.5 text-[11px] text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono disabled:opacity-50 appearance-none cursor-pointer active:bg-white/5 ${
                   receiverFlash ? 'ring-2 ring-cyan-500 bg-cyan-500/10' : ''
                 }`}
               >
@@ -594,22 +580,24 @@ export default function App() {
               <span className="text-[9px] font-bold text-[var(--ink-secondary)] uppercase">Volume</span>
               <span className="text-[10px] font-mono text-pink-400">{isMuted ? 'MUTED' : `${volume}%`}</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 py-1">
               <button 
                 type="button"
                 onClick={() => setIsMuted(!isMuted)}
-                className={`p-1.5 rounded transition-colors ${isMuted ? 'bg-red-500/20 text-red-500' : 'text-pink-500 hover:bg-pink-500/10'}`}
+                className={`p-2.5 rounded transition-colors active:scale-90 ${isMuted ? 'bg-red-500/20 text-red-500' : 'text-pink-500 hover:bg-pink-500/10'}`}
               >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume1 className="w-4 h-4" />}
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume1 className="w-5 h-5" />}
               </button>
-              <input 
-                type="range"
-                min="0"
-                max="100"
-                value={volume}
-                onChange={(e) => setVolume(parseInt(e.target.value))}
-                className="flex-grow accent-pink-500 h-1 bg-black/40 rounded-full"
-              />
+              <div className="flex-grow flex items-center h-8">
+                <input 
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={volume}
+                  onChange={(e) => setVolume(parseInt(e.target.value))}
+                  className="w-full accent-pink-500 h-2 bg-black/40 rounded-full cursor-pointer touch-none"
+                />
+              </div>
             </div>
           </section>
 
@@ -618,10 +606,10 @@ export default function App() {
               type="button"
               onClick={(e) => { e.preventDefault(); toggleStream(); }}
               disabled={loading.action}
-              className={`w-full py-2.5 rounded font-black text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 group ${
+              className={`w-full py-3.5 rounded font-black text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 group active:scale-[0.98] ${
                 status.streaming 
                   ? 'bg-transparent border border-red-500 text-red-500 hover:bg-red-500 hover:text-white' 
-                  : (loading.action ? 'bg-pink-800' : 'bg-pink-600') + ' border border-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)] hover:shadow-[0_0_25px_rgba(236,72,153,0.6)] hover:scale-[1.02]'
+                  : (loading.action ? 'bg-pink-800' : 'bg-pink-600') + ' border border-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)] hover:shadow-[0_0_25px_rgba(236,72,153,0.6)]'
               } ${loading.action ? 'opacity-80 cursor-wait' : ''}`}
             >
               {loading.action ? (
@@ -650,14 +638,17 @@ export default function App() {
         {/* Center Canvas Area */}
         <main className="flex-grow relative flex items-center justify-center bg-black/20 overflow-hidden">
           {/* Animated Matrix Background */}
-          <div className="absolute inset-0 pointer-events-none opacity-20">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
-          </div>
+          {!isLowPerf && (
+            <div className="absolute inset-0 pointer-events-none opacity-20">
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
+            </div>
+          )}
 
           <div className="relative group">
              <CircularVisualizer 
                spinning={status.streaming} 
                armActive={status.casting ? status.castStatus === 'connected' : status.streaming} 
+               lowPerf={isLowPerf}
              />
              
              {/* Dynamic Status Overlay */}
@@ -771,9 +762,9 @@ export default function App() {
                               <button
                                  type="button"
                                  onClick={() => setShowPasswords(prev => ({ ...prev, source: !prev.source }))}
-                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                                 className="absolute right-0 top-0 bottom-0 px-4 text-white/30 hover:text-white/60 transition-colors active:bg-white/5"
                               >
-                                 {showPasswords.source ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                 {showPasswords.source ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                            </div>
                         </div>
@@ -787,12 +778,12 @@ export default function App() {
                                     onChange={(e) => setSettings({...settings, icecastAdminPass: e.target.value})}
                                     className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors pr-10"
                                  />
-                                 <button
+                               <button
                                     type="button"
                                     onClick={() => setShowPasswords(prev => ({ ...prev, admin: !prev.admin }))}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 px-4 text-white/30 hover:text-white/60 transition-colors active:bg-white/5"
                                  >
-                                    {showPasswords.admin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    {showPasswords.admin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                  </button>
                               </div>
                            </div>
@@ -806,6 +797,22 @@ export default function App() {
                               />
                            </div>
                         </div>
+                      </div>
+                   </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">System Optimization</h3>
+                      <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
+                        <div>
+                          <div className="text-[9px] font-black text-white uppercase tracking-widest">Performance Mode</div>
+                          <div className="text-[7px] text-white/40 italic">Disable heavy visual effects for smoother experience on Pi/Low-perf devices</div>
+                        </div>
+                        <button
+                          onClick={() => setIsLowPerf(!isLowPerf)}
+                          className={`w-10 h-5 rounded-full transition-all relative ${isLowPerf ? 'bg-cyan-500' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isLowPerf ? 'left-6' : 'left-1'}`} />
+                        </button>
                       </div>
                    </div>
 
@@ -838,7 +845,7 @@ export default function App() {
                       <button 
                         type="button"
                         onClick={() => saveSettings(settings)}
-                        className="flex-grow bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-lg font-black text-[10px] tracking-[0.2em] transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)]"
+                        className="flex-grow bg-cyan-600 hover:bg-cyan-500 text-white py-3.5 rounded-lg font-black text-[10px] tracking-[0.2em] transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] active:scale-95"
                       >
                         APPLY EXPERT CONFIGURATION
                       </button>
@@ -849,7 +856,7 @@ export default function App() {
                            const url = `http://${status.localIp || 'localhost'}:${settings.icecastPort}${mount}`;
                            window.open(url, '_blank');
                          }}
-                         className="px-6 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold transition-all uppercase tracking-widest"
+                         className="px-6 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold transition-all uppercase tracking-widest active:scale-95"
                       >
                         Test Stream
                       </button>
@@ -932,7 +939,9 @@ export default function App() {
       </div>
 
       {/* Mini Retro CRT scanlines effect */}
-      <div className="absolute inset-0 pointer-events-none z-[100] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[size:100%_4px,3px_100%] opacity-30" />
+      {!isLowPerf && (
+        <div className="absolute inset-0 pointer-events-none z-[100] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[size:100%_4px,3px_100%] opacity-30" />
+      )}
 
       {/* Toast Notifications */}
       <AnimatePresence>
@@ -965,14 +974,14 @@ export default function App() {
             onClick={() => setShowScreensaver(false)}
           >
              <motion.div
-               animate={{ 
+               animate={!isLowPerf ? { 
                  x: [10, -10, 10, -10, 10],
                  y: [10, 10, -10, -10, 10],
-               }}
+               } : {}}
                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
                className="flex flex-col items-center gap-6"
              >
-                <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-violet-600 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(236,72,153,0.3)] border border-white/20">
+                <div className={`w-24 h-24 bg-gradient-to-br from-pink-500 to-violet-600 rounded-full flex items-center justify-center border border-white/20 ${!isLowPerf ? 'shadow-[0_0_50px_rgba(236,72,153,0.3)]' : ''}`}>
                    <Radio className="text-white w-12 h-12" />
                 </div>
                 <div className="text-center space-y-2">
@@ -983,8 +992,12 @@ export default function App() {
                    </div>
                 </div>
              </motion.div>
-             <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
-             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent animate-pulse" />
+             {!isLowPerf && (
+               <>
+                 <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent animate-pulse" />
+               </>
+             )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -992,9 +1005,9 @@ export default function App() {
   );
 }
 
-function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armActive: boolean }) {
+function CircularVisualizer({ spinning, armActive, lowPerf = false }: { spinning: boolean, armActive: boolean, lowPerf?: boolean }) {
   return (
-    <div className="relative w-[340px] h-[340px] flex items-center justify-center shrink-0 scale-90 sm:scale-100">
+    <div className="relative w-[340px] h-[340px] flex items-center justify-center shrink-0 scale-[0.7] sm:scale-90 lg:scale-100">
       {/* Vinyl Record Base */}
       <motion.div
         animate={spinning ? { rotate: [0, 360] } : { rotate: 0 }}
@@ -1006,7 +1019,7 @@ function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armAct
         className="relative w-[300px] h-[300px] rounded-full bg-black flex items-center justify-center overflow-hidden border-[6px] border-[#1a1a1a] shadow-[0_0_60px_rgba(255,0,255,0.2)]"
       >
         {/* Grooves with Synth Effect */}
-        {[...Array(12)].map((_, i) => (
+        {!lowPerf && [...Array(12)].map((_, i) => (
           <div
             key={i}
             className="absolute rounded-full border border-pink-500/5"
@@ -1017,12 +1030,12 @@ function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armAct
         ))}
 
         {/* Cyber Reflection */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-cyan-500/5 to-transparent pointer-events-none" />
+        {!lowPerf && <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-cyan-500/5 to-transparent pointer-events-none" />}
         
         {/* Dynamic Inner Label */}
         <div className="relative w-[110px] h-[110px] rounded-full bg-gradient-to-br from-pink-600 to-violet-700 flex flex-col items-center justify-center shadow-inner border-[6px] border-black z-10 overflow-hidden">
           {/* Animated Pulse Pattern */}
-          {spinning && (
+          {spinning && !lowPerf && (
             <motion.div
               animate={{ 
                 scale: [1, 1.2, 1],
@@ -1042,7 +1055,7 @@ function CircularVisualizer({ spinning, armActive }: { spinning: boolean, armAct
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.1</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.6</div>
         </div>
       </motion.div>
 

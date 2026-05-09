@@ -53,7 +53,7 @@ async function startServer() {
     icecastPort: "8000",
     icecastSourcePass: "hackme",
     icecastAdminPass: "hackme",
-    icecastMount: "stream.mp3",
+    icecastMount: "/stream.mp3",
     bitrate: "320",
     sampleRate: "44100"
   };
@@ -262,6 +262,11 @@ async function startServer() {
         addLog("Could not verify Icecast status. Continuing anyway...");
       }
 
+      // Sanitize mount point (MUST start with /)
+      const mountPoint = streamSettings.icecastMount.startsWith("/") 
+        ? streamSettings.icecastMount 
+        : `/${streamSettings.icecastMount}`;
+
       // IMPORTANT: config string must have NO leading spaces for DarkIce sections [header]
       const configText = `[general]
 duration        = 0
@@ -281,11 +286,12 @@ bitrate         = ${streamSettings.bitrate}
 server          = ${streamSettings.icecastHost}
 port            = ${streamSettings.icecastPort}
 password        = ${streamSettings.icecastSourcePass}
-mountPoint      = ${streamSettings.icecastMount}
+mountPoint      = ${mountPoint}
 name            = 7B Records Live
 `;
-      await fs.writeFile("darkice.cfg", configText);
-      addLog("Generated darkice.cfg (Fixed formatting)");
+      const activeConfigPath = path.join(os.tmpdir(), "7b-records-darkice.cfg");
+      await fs.writeFile(activeConfigPath, configText);
+      addLog(`Generated session config: ${activeConfigPath} (Sanitized Mount Point)`);
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
 
@@ -313,30 +319,39 @@ name            = 7B Records Live
             finalCmd = homeLocalBin;
           }
         }
+        
+        addLog(`[EXEC] Spawning ${name}: ${finalCmd} ${args.join(' ')}`);
         const proc = spawn(finalCmd, args);
         
         proc.on('error', (err: any) => {
           if (err.code === 'ENOENT') {
             if (name === 'Catt') {
-              addLog(`WARNING: 'catt' binary not found. Please run 'sudo apt install catt' or 'pip3 install catt' on your Pi.`);
+              addLog(`[CRITICAL] Binary 'catt' not found! Please run 'sudo apt install catt' or 'pip3 install catt'.`);
+            } else if (name === 'Cast') {
+              addLog(`[WARNING] 'mkchromecast' binary not found. Falling back to 'catt' if available.`);
             } else {
-              addLog(`WARNING: ${name} binary not found. Entering Mock Mode.`);
+              addLog(`[WARNING] ${name} binary not found. Entering Mock Mode.`);
             }
             mockMode = true;
           } else {
-            addLog(`${name} Error: ${err.message}`);
+            addLog(`[${name} ERROR] ${err.message}`);
           }
         });
 
-        proc.on('exit', (code) => {
-          addLog(`${name} process exited with code ${code}`);
+        proc.on('exit', (code, signal) => {
+          addLog(`[${name} EXIT] Code: ${code}${signal ? `, Signal: ${signal}` : ''}`);
           if (name === 'DarkIce') {
             darkIceProcess = null;
             if (code === 1 && !mockMode) {
                addLog("DarkIce failed to start. Tip: Check if another app is using the audio device or if the Icecast password is correct.");
             }
           }
-          if (name === 'Cast' || name === 'Catt') mkChromecastProcess = null;
+          if (name === 'Cast' || name === 'Catt') {
+            if (code !== 0 && code !== null) {
+              addLog(`[${name} FAIL] Casting engine failed with non-zero exit code.`);
+            }
+            mkChromecastProcess = null;
+          }
         });
 
         const checkAuthError = (logMsgText: string) => {
@@ -356,83 +371,119 @@ name            = 7B Records Live
         };
 
         proc.stdout?.on('data', (data) => {
-          const logMsg = data.toString();
-          addLog(`${name}: ${logMsg}`);
-          checkAuthError(logMsg);
+          const logMsg = data.toString().trim();
+          if (logMsg) {
+            addLog(`[${name} STDOUT] ${logMsg}`);
+            checkAuthError(logMsg);
+          }
         });
         
         proc.stderr?.on('data', (data) => {
-          const logMsg = data.toString();
-          addLog(`${name} Stderr: ${logMsg}`);
-          checkAuthError(logMsg);
-          
-          // Monitor for the mkchromecast bug
-          if (name === 'Cast' && (
-            logMsg.includes("AttributeError: 'Casting' object has no attribute 'cast'") ||
-            logMsg.includes("AttributeError: module 'pychromecast' has no attribute 'get_chromecast'") ||
-            logMsg.includes("AttributeError: module 'pychromecast.error' has no attribute 'NoChromecastFoundError'")
-          )) {
-             if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
-             
-             const streamUrl = `http://${LOCAL_IP}:8000/stream.mp3`;
-             addLog(`mkchromecast bug detected! Switching to 'catt' backup...`);
-             
-             // Try to extract IP from name if it exists (e.g. "Name [192.168.1.5]")
-             let castTarget = chromecast;
-             const ipMatch = chromecast.match(/\[(.*?)\]/);
-             if (ipMatch && ipMatch[1]) {
-                 castTarget = ipMatch[1];
-                 addLog(`Extracted IP ${castTarget} for catt target`);
-             }
-
-             try {
-               mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
-               if (mkChromecastProcess && mkChromecastProcess.pid) {
-                 addLog(`Successfully spawned backup 'catt' (PID: ${mkChromecastProcess.pid})`);
-               } else {
-                 addLog("ERROR: failed to spawn 'catt' or no PID.");
+          const logMsg = data.toString().trim();
+          if (logMsg) {
+            addLog(`[${name} STDERR] ${logMsg}`);
+            checkAuthError(logMsg);
+            
+            // Monitor for the mkchromecast bug
+            if (name === 'Cast' && (
+              logMsg.includes("AttributeError:") ||
+              logMsg.includes("NoChromecastFoundError") ||
+              logMsg.includes("KeyError:")
+            )) {
+               addLog(`[DEBUG] Detected mkchromecast known bug/exception. Triggering catt fallback...`);
+               if (mkChromecastProcess && mkChromecastProcess.kill) mkChromecastProcess.kill();
+               
+               const activeMount = streamSettings.icecastMount.startsWith("/") ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
+               const streamUrl = `http://${LOCAL_IP}:${streamSettings.icecastPort}${activeMount}`;
+               
+               // Try to extract IP from name if it exists (e.g. "Name [192.168.1.5]")
+               let castTarget = chromecast;
+               const ipMatch = chromecast.match(/\[(.*?)\]/);
+               if (ipMatch && ipMatch[1]) {
+                   castTarget = ipMatch[1];
+                   addLog(`[FALLBACK] Extracted IP ${castTarget} for catt target`);
                }
-             } catch (spawnErr) {
-               addLog(`CRITICAL Error while spawning 'catt': ${spawnErr}`);
-             }
+
+               setTimeout(() => {
+                 try {
+                   addLog(`[FALLBACK] Launching catt to target: ${castTarget}`);
+                   mkChromecastProcess = spawnProcess("catt", ["-d", castTarget, "cast", streamUrl], "Catt");
+                 } catch (spawnErr) {
+                   addLog(`[CRITICAL] Error while spawning 'catt' fallback: ${spawnErr}`);
+                 }
+               }, 1000);
+            }
           }
         });
         
         return proc;
       };
 
-      darkIceProcess = spawnProcess("darkice", ["-c", "darkice.cfg"], "DarkIce");
-      streamStartTime = Date.now();
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
 
-      // Better check: Wait until the stream URL is actually reachable locally
-      const waitForStream = async (retries = 10): Promise<boolean> => {
-        const mount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
-        for (let i = 0; i < retries; i++) {
-          try {
-            const { stdout } = await execAsync(`curl -I http://localhost:8000${mount} 2>/dev/null | grep "200" || true`);
-            if (stdout.includes("200")) return true;
-          } catch (e) {}
-          await new Promise(r => setTimeout(r, 1500));
-          if (i % 2 === 0) addLog(`Waiting for stream to buffer... (${i + 1}/${retries})`);
-        }
-        return false;
+      const startDarkIce = async (): Promise<boolean> => {
+        return new Promise((resolve) => {
+          const proc = spawnProcess("darkice", ["-c", activeConfigPath], "DarkIce");
+          darkIceProcess = proc;
+          
+          let successfullyConnected = false;
+          
+          const timeout = setTimeout(() => {
+            if (!successfullyConnected && proc.pid && proc.pid !== 999) {
+              addLog("DarkIce initial handshake timed out. Retrying...");
+              proc.kill();
+              resolve(false);
+            }
+          }, 12000); // 12 second timeout for initial connection
+
+          proc.stdout?.on('data', (data) => {
+            const msg = data.toString();
+            // DarkIce prints "transferring 123 bytes" when successfully sending data
+            if (msg.includes("transferring") || msg.includes("Icecast2-0 started")) {
+               if (!successfullyConnected) {
+                 addLog(">>> DarkIce successfully connected to Icecast bridge.");
+                 successfullyConnected = true;
+                 clearTimeout(timeout);
+                 resolve(true);
+               }
+            }
+          });
+
+          proc.on('exit', (code) => {
+            if (!successfullyConnected) {
+              clearTimeout(timeout);
+              resolve(false);
+            }
+          });
+        });
       };
 
       (async () => {
-        const isLive = await waitForStream();
+        streamStartTime = Date.now();
+        let connected = false;
         
-        if (!isLive && (!darkIceProcess || !darkIceProcess.pid)) {
-          addLog("DASHBOARD: Simulating DarkIce (Hardware not responding)");
-          darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
-          mockMode = true;
-        } else if (!isLive) {
-          addLog("CRITICAL ERROR: DarkIce could not reach the Icecast mount.");
-          addLog(`TIP: Ensure the Source Password in 'Settings' matches the one used in setup_icecast.sh.`);
-          addLog(`Dashboard is currently using: ${streamSettings.icecastSourcePass}`);
+        while (retryCount < MAX_RETRIES && !connected) {
+          if (retryCount > 0) {
+            addLog(`Retry ${retryCount}/${MAX_RETRIES}: Waiting for Icecast port 8000 to clear...`);
+            await new Promise(r => setTimeout(r, 4000));
+          }
+          connected = await startDarkIce();
+          if (!connected) retryCount++;
         }
 
-        const mount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
-        const streamUrl = `http://${LOCAL_IP}:8000${mount}`;
+        if (!connected) {
+          addLog("CRITICAL: DarkIce could not reach Icecast after multiple attempts.");
+          addLog("DASHBOARD: Entering Simulation Mode for UI preview.");
+          darkIceProcess = { kill: () => { mockMode = false; }, pid: 999 };
+          mockMode = true;
+        }
+
+        // Wait a small bit for buffer to fill
+        await new Promise(r => setTimeout(r, 2000));
+
+        const activeMount = streamSettings.icecastMount.startsWith('/') ? streamSettings.icecastMount : `/${streamSettings.icecastMount}`;
+        const streamUrl = `http://${LOCAL_IP}:${streamSettings.icecastPort}${activeMount}`;
         addLog(`Attempting to cast ${streamUrl} to ${chromecast}...`);
         
         // Try mkchromecast first
@@ -444,7 +495,7 @@ name            = 7B Records Live
         ], "Cast");
       })();
 
-      res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:8000/stream.mp3` });
+      res.json({ success: true, mock: mockMode, streamUrl: `http://${LOCAL_IP}:${streamSettings.icecastPort}/stream.mp3` });
     } catch (error) {
       addLog(`Failed to start stream: ${error}`);
       res.status(500).json({ error: "Failed to start stream" });

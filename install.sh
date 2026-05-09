@@ -17,7 +17,15 @@ fi
 
 echo "📦 1/4: Installing System Packages..."
 apt-get update
-apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools
+apt-get install -y darkice icecast2 lame alsa-utils curl python3-pip python3-setuptools avahi-utils
+
+echo "👥 Setting up User Permissions..."
+# Add current user to audio and plugdev groups
+if [ -n "$SUDO_USER" ]; then
+    usermod -a -G audio,plugdev $SUDO_USER
+    echo "Added $SUDO_USER to audio/plugdev groups."
+fi
+usermod -a -G audio,plugdev node 2>/dev/null || true
 
 echo "📡 2/4: Configuring Icecast2 Server..."
 # Run the existing icecast setup logic
