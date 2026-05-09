@@ -68,12 +68,12 @@ async function startServer() {
     if (logs.length > 500) logs.shift();
     originalConsoleLog(`[LOG] ${msg}`);
     
-    // Auto-detect cast status from logs
+    // Auto-detect cast status and critical errors from logs
     if (msg.includes("Casting...") || msg.includes("Playing...") || msg.includes("audio is being casted")) {
       castStatus = 'connected';
     } else if (msg.includes("Attempting to cast") || msg.includes("Waiting for stream")) {
       castStatus = 'connecting';
-    } else if (msg.includes("Error") || msg.includes("failed") || msg.includes("bug detected")) {
+    } else if (msg.includes("Error") || msg.includes("failed") || msg.includes("bug detected") || msg.includes("CRITICAL")) {
       castStatus = 'error';
     }
     
@@ -288,6 +288,21 @@ name            = 7B Records Live
       addLog("Generated darkice.cfg (Fixed formatting)");
 
       addLog(`Attempting to start DarkIce with device ${device}...`);
+
+      // Pre-flight check for ALSA device
+      if (device.startsWith("hw:")) {
+        try {
+          const { stdout: devices } = await execAsync("arecord -l");
+          const cardId = device.split(":")[1].split(",")[0];
+          if (!devices.includes(`card ${cardId}:`)) {
+            addLog(`CRITICAL ERROR: Audio card ${cardId} is not connected or recognized.`);
+            addLog("TIP: Check your USB connection and run 'arecord -l' in the terminal.");
+            throw new Error(`Device ${device} not found`);
+          }
+        } catch (e) {
+          if (!mockMode) addLog(`Pre-flight Hardware Warning: ${e instanceof Error ? e.message : 'Unknown'}`);
+        }
+      }
       
       const spawnProcess = (cmd: string, args: string[], name: string) => {
         // Fallback for catt if installed via pip3 in .local/bin
@@ -325,8 +340,18 @@ name            = 7B Records Live
         });
 
         const checkAuthError = (logMsgText: string) => {
-          if (name === 'DarkIce' && (logMsgText.includes("can't open connector") || logMsgText.includes("connector [0]"))) {
-            addLog("CRITICAL: Icecast connection failed. Likely incorrect password. DEFAULT is 'hackme'. Check settings.");
+          if (name === 'DarkIce') {
+            if (logMsgText.includes("can't open connector") || logMsgText.includes("connector [0]")) {
+              addLog("CRITICAL: Icecast connection failed. Likely incorrect password. DEFAULT is 'hackme'. Check settings.");
+            }
+            if (logMsgText.includes("Device or resource busy")) {
+              addLog("CRITICAL ERROR: Audio device is currently BUSY. Another app might be using it.");
+              addLog("TIP: Unplug and replug your USB audio interface.");
+            }
+            if (logMsgText.includes("No such file or directory") || logMsgText.includes("Unknown PCM")) {
+              addLog(`CRITICAL ERROR: Device ${streamSettings.device} is missing.`);
+              addLog("TIP: Re-select your USB device in settings or try 'hw:2,0'.");
+            }
           }
         };
 

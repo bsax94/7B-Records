@@ -25,7 +25,9 @@ import {
   Volume1,
   Volume2,
   MessageSquare,
-  Clock
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -75,9 +77,11 @@ export default function App() {
   });
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({ source: false, admin: false });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState({ devices: false, casting: false, action: false });
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success'} | null>(null);
+  const [criticalError, setCriticalError] = useState<{message: string, tip: string} | null>(null);
   const [deviceFlash, setDeviceFlash] = useState(false);
   const [receiverFlash, setReceiverFlash] = useState(false);
   
@@ -210,6 +214,19 @@ export default function App() {
       const data = await res.json();
       if (data && Array.isArray(data.logs)) {
         setLogs(data.logs);
+        
+        // Scan for critical errors
+        const latestCritical = [...data.logs].reverse().find((l: string) => l.includes("CRITICAL"));
+        if (latestCritical) {
+          const msg = latestCritical.split("CRITICAL")[1].split(".")[0].trim();
+          const tip = data.logs.find((l: string, idx: number, arr: string[]) => 
+            idx > data.logs.indexOf(latestCritical) && l.includes("TIP")
+          )?.split("TIP:")[1] || "Check your connections and expert settings.";
+          
+          setCriticalError({ message: msg, tip });
+        } else {
+          setCriticalError(null);
+        }
       }
     } catch (e) {
       if (e instanceof Error && e.name === 'TypeError' && e.message === 'Failed to fetch') {
@@ -312,6 +329,33 @@ export default function App() {
           </button>
         </div>
       </nav>
+
+      <AnimatePresence>
+        {criticalError && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-red-500/90 text-white px-4 py-2 flex items-center gap-4 border-b border-red-400 relative z-50 shadow-lg overflow-hidden shrink-0"
+          >
+             <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+             <div className="flex-grow">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-0.5">Hardware / Stream Error Detected</p>
+                <p className="text-[11px] font-medium text-white/90 italic tracking-tight">{criticalError.message}</p>
+             </div>
+             <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded border border-white/10 max-w-[40%]">
+                <Info className="w-3 h-3 text-white/70" />
+                <p className="text-[9px] font-bold text-white/80 leading-tight uppercase font-mono tracking-tighter">{criticalError.tip}</p>
+             </div>
+             <button 
+               onClick={() => setShowLogs(true)}
+               className="bg-white text-red-600 px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors"
+             >
+               View Logs
+             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Grid Content */}
       <div className="flex-grow flex overflow-hidden">
@@ -606,22 +650,40 @@ export default function App() {
                         </div>
                         <div className="space-y-2">
                            <label className="block text-[8px] font-bold text-white/40 uppercase">Mount Password (Source)</label>
-                           <input 
-                              type="password" 
-                              value={settings.icecastSourcePass}
-                              onChange={(e) => setSettings({...settings, icecastSourcePass: e.target.value})}
-                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
-                           />
+                           <div className="relative">
+                              <input 
+                                 type={showPasswords.source ? "text" : "password"} 
+                                 value={settings.icecastSourcePass}
+                                 onChange={(e) => setSettings({...settings, icecastSourcePass: e.target.value})}
+                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors pr-10"
+                              />
+                              <button
+                                 type="button"
+                                 onClick={() => setShowPasswords(prev => ({ ...prev, source: !prev.source }))}
+                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                              >
+                                 {showPasswords.source ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                            <div className="space-y-2">
                               <label className="block text-[8px] font-bold text-white/40 uppercase">Admin Password</label>
-                              <input 
-                                 type="password" 
-                                 value={settings.icecastAdminPass}
-                                 onChange={(e) => setSettings({...settings, icecastAdminPass: e.target.value})}
-                                 className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors"
-                              />
+                              <div className="relative">
+                                 <input 
+                                    type={showPasswords.admin ? "text" : "password"} 
+                                    value={settings.icecastAdminPass}
+                                    onChange={(e) => setSettings({...settings, icecastAdminPass: e.target.value})}
+                                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white focus:border-pink-500 transition-colors pr-10"
+                                 />
+                                 <button
+                                    type="button"
+                                    onClick={() => setShowPasswords(prev => ({ ...prev, admin: !prev.admin }))}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                                 >
+                                    {showPasswords.admin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                 </button>
+                              </div>
                            </div>
                            <div className="space-y-2">
                               <label className="block text-[8px] font-bold text-white/40 uppercase">Mount Point</label>
@@ -648,7 +710,7 @@ export default function App() {
                          type="button"
                          onClick={() => {
                            const mount = settings.icecastMount.startsWith('/') ? settings.icecastMount : `/${settings.icecastMount}`;
-                           const url = `http://${config.localIp || 'localhost'}:${settings.icecastPort}${mount}`;
+                           const url = `http://${status.localIp || 'localhost'}:${settings.icecastPort}${mount}`;
                            window.open(url, '_blank');
                          }}
                          className="px-6 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold transition-all uppercase tracking-widest"
@@ -680,10 +742,14 @@ export default function App() {
                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                       <div className="flex gap-3">
                          <Info className="w-4 h-4 text-amber-500 shrink-0" />
-                         <span className="text-[9px] text-amber-200/70 leading-relaxed uppercase tracking-tighter">
-                           Caution: Changing hardware paths requires the DarkIce process to restart. 
-                           If you hear no audio, run <code className="text-white">arecord -l</code> in your terminal to find your card ID.
-                         </span>
+                         <div className="space-y-1">
+                            <span className="block text-[9px] text-amber-200/70 leading-relaxed uppercase tracking-widest font-black">Troubleshooting & Tips</span>
+                            <p className="text-[9px] text-amber-100/50 leading-relaxed font-mono">
+                                • Incorrect Mount Password: Check <code className="text-white">setup_icecast.sh</code> output.<br/>
+                                • Busy Hardware: Unplug and replug your USB audio interface.<br/>
+                                • Silent Stream: Ensure your source (turntable) is playing and volume is up.
+                            </p>
+                         </div>
                       </div>
                    </div>
                 </div>
