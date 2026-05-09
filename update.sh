@@ -33,10 +33,18 @@ cd "$ROOT"
 echo "📍 Working in: $ROOT"
 
 echo "📥 [2/4] Pulling latest updates from GitHub..."
-# Fix permissions before pulling if possible, but definitely after
+# Attempt to handle local conflicts gracefully
+git stash || true
+if git pull origin main; then
+    echo "✅ Successfully pulled latest changes."
+else
+    echo "⚠️  Standard pull failed. Attempting a force-sync..."
+    git fetch --all
+    git reset --hard origin/main
+fi
+git stash pop || true
 chmod +x *.sh || true
-git pull origin main || git pull || echo "⚠️  Git pull failed. You may need to manually resolve conflicts."
-chmod +x *.sh || true
+chmod +x scripts/*.sh || true
 
 echo "📦 [3/4] refreshing dependencies..."
 # Ensure pip3 is available

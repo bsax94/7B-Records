@@ -1055,7 +1055,7 @@ function CircularVisualizer({ spinning, armActive, lowPerf = false }: { spinning
           <div className="text-[8px] font-black text-white px-2 text-center leading-none uppercase tracking-tighter relative z-10 italic -translate-y-[20px]">
              RECORDS
           </div>
-          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.8</div>
+          <div className="text-[6px] font-black text-cyan-300 mt-0 uppercase tracking-widest relative z-10 translate-y-4">CORE_V2.9</div>
         </div>
       </motion.div>
 
